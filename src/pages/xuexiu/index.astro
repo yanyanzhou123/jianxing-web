@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="学修" description="见行学会四大学修模块">
+  <div class="page-hero">
+    <div class="wrap">
+      <h1>学修</h1>
+      <p>选择模块进入。章节、课次与小节均可在运营后台配置。</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top: 0;">
+    <div class="wrap">
+      <ul class="module-list" id="xuexiu-modules">
+        <li><p class="lesson-list__summary">加载中…</p></li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<script src="/jx-catalog.js" defer></script>
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const ul = document.getElementById('xuexiu-modules');
+    try {
+      const catalog = await JX.fetchCatalog();
+      ul.innerHTML = catalog.modules
+        .map((mod, index) => {
+          const count = JX.lessonCount(mod);
+          return `
+            <li class="${mod.status === 'open' ? 'is-open' : ''}">
+              <a href="/${mod.slug}/">
+                <span class="module-list__num">${String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <p class="module-list__meta">${JX.escape(mod.statusLabel || '')}${count ? ` · ${count} 课` : ''}</p>
+                  <h3 class="module-list__title">《${JX.escape(mod.title)}》</h3>
+                  <p class="module-list__summary">${JX.escape(mod.summary || '')}</p>
+                </div>
+              </a>
+            </li>`;
+        })
+        .join('');
+    } catch (e) {
+      ul.innerHTML = `<li><p>加载失败：${JX.escape(e.message || e)}</p></li>`;
+    }
+  });
+</script>

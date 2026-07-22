@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getModule } from '../../data/content';
+
+export function getStaticPaths() {
+  return ['lunhui', 'qianxing', 'foguang', 'buli'].map((module) => ({
+    params: { module },
+  }));
+}
+
+const moduleSlug = Astro.params.module!;
+const seed = getModule(moduleSlug);
+---
+
+<BaseLayout title={seed?.title || '课程'} description="课程学习">
+  <article class="page-hero">
+    <div class="content-width" id="lesson-root">
+      <p class="group-label" style="margin-top: 0;" id="lesson-crumb">加载中…</p>
+      <h1 id="lesson-title">…</h1>
+      <p id="lesson-summary"></p>
+      <p class="lesson-list__meta" id="lesson-meta"></p>
+      <div id="lesson-segments"></div>
+      <nav class="lesson-nav" aria-label="上下课" id="lesson-nav"></nav>
+    </div>
+  </article>
+</BaseLayout>
+
+<script src="/jx-catalog.js" defer></script>
+<script is:inline define:vars={{ moduleSlug }}>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    const root = document.getElementById('lesson-root');
+    if (!id) {
+      root.innerHTML = `<p>缺少课程 id。</p><p><a href="/${moduleSlug}/">返回目录</a></p>`;
+      return;
+    }
+    try {
+      const catalog = await JX.fetchCatalog();
+      const found = JX.findLesson(catalog, moduleSlug, id);
+      if (!found) {
+        root.innerHTML = `<p>未找到课程。</p><p><a href="/${moduleSlug}/">返回目录</a></p>`;
+        return;
+      }
+      const { mod, chapter, lesson, lessonsFlat } = found;
+      document.title = `${lesson.title} · 见行学会`;
+      document.getElementById('lesson-crumb').textContent = `《${mod.title}》 · ${chapter.title}`;
+      document.getElementById('lesson-title').textContent = lesson.title;
+      document.getElementById('lesson-summary').textContent = lesson.summary || '';
+      document.getElementById('lesson-meta').textContent = JX.formatLessonMeta(lesson);
+
+      const segs = lesson.segments || [];
+      document.getElementById('lesson-segments').innerHTML = segs.length
+        ? segs
+            .map((seg, i) => {
+              const audio = JX.assetUrl(seg.audioPath);
+              const video = JX.assetUrl(seg.videoPath);
+              return `
+                <section class="text-block" style="margin:2rem 0;padding-top:1rem;border-top:1px solid var(--line);">
+                  <p class="group-label">${JX.escape(seg.title || `小节${i + 1}`)}</p>
+                  ${
+                    audio
+                      ? `<div class="audio-box"><p class="audio-box__label">音频</p><audio controls preload="none" src="${audio}"></audio></div>`
+                      : seg.audioPath
+                        ? `<div class="audio-box"><p class="audio-box__empty">音频待上传：${JX.escape(seg.audioPath)}</p></div>`
+                        : ''
+                  }
+                  ${
+                    video
+                      ? `<div class="video-box" style="margin:1rem 0;"><p class="audio-box__label">视频</p><video controls preload="metadata" src="${video}" style="width:100%;max-height:28rem;background:#111;"></video></div>`
+                      : seg.videoPath
+                        ? `<div class="audio-box"><p class="audio-box__empty">视频待上传：${JX.escape(seg.videoPath)}</p></div>`
+                        : ''
+                  }
+                  <div class="prose">${seg.text ? JX.formatText(seg.text) : '<p class="audio-box__empty">暂无文字</p>'}</div>
+                </section>`;
+            })
+            .join('')
+        : '<p class="audio-box__empty">本课暂无小节，请在运营后台添加。</p>';
+
+      const idx = lessonsFlat.findIndex((l) => l.slug === lesson.slug);
+      const prev = idx > 0 ? lessonsFlat[idx - 1] : null;
+      const next = idx >= 0 && idx < lessonsFlat.length - 1 ? lessonsFlat[idx + 1] : null;
+      document.getElementById('lesson-nav').innerHTML = `
+        <div>${
+          prev
+            ? `<a href="/${moduleSlug}/learn/?id=${encodeURIComponent(prev.slug)}"><span>上一课</span>${JX.escape(prev.title)}</a>`
+            : '<span></span>'
+        }</div>
+        <div style="text-align:right;">${
+          next
+            ? `<a href="/${moduleSlug}/learn/?id=${encodeURIComponent(next.slug)}"><span>下一课</span>${JX.escape(next.title)}</a>`
+            : `<a href="/${moduleSlug}/"><span>目录</span>返回课次列表</a>`
+        }</div>`;
+    } catch (e) {
+      root.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
+    }
+  });
+</script>

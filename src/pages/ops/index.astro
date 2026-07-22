@@ -1,0 +1,52 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="运营后台" description="见行学会内容架构与上传">
+  <div class="page-hero">
+    <div class="wrap">
+      <p class="group-label" style="margin-top: 0;">内部工具</p>
+      <h1>运营后台</h1>
+      <p>
+        在此搭建各大模块架构：章节 → 课 → 小节。每个小节可配置文字、音频、视频。
+        大视频会自动分片上传（可超过 95MB）。改完后点「保存到服务器」。
+      </p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top: 0;">
+    <div class="wrap">
+      <div id="ops-login" class="ops-panel">
+        <p class="ops-label">登录</p>
+        <form id="login-form" class="ops-form-simple">
+          <input type="password" name="password" placeholder="运营密码" autocomplete="current-password" required />
+          <button type="submit" class="btn btn--solid" style="color:#f4f7f5;">登录</button>
+        </form>
+        <p id="login-msg" class="ops-msg" hidden></p>
+      </div>
+
+      <div id="ops-app" hidden>
+        <div class="ops-toolbar">
+          <button type="button" id="btn-save" class="btn btn--solid" style="color:#f4f7f5;">保存到服务器</button>
+          <button type="button" id="btn-reload" class="btn" style="color:inherit;border-color:var(--line);">重新加载</button>
+          <button type="button" id="logout-btn" class="btn" style="color:inherit;border-color:var(--line);">退出</button>
+          <span id="save-msg" class="ops-msg" style="margin:0;"></span>
+        </div>
+
+        <div class="ops-grid">
+          <aside class="ops-side">
+            <p class="ops-label">大模块</p>
+            <ul id="module-list" class="ops-nav"></ul>
+          </aside>
+
+          <div class="ops-main" id="module-editor">
+            <p class="ops-empty">请选择左侧模块</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<link rel="stylesheet" href="/ops-app.css" />
+<script src="/ops-app.js" defer></script>

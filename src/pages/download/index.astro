@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="下载" description="PDF、音频与视频下载">
+  <div class="page-hero">
+    <div class="wrap">
+      <h1>下载</h1>
+      <p>根据运营后台配置的小节路径自动列出可下载文件。</p>
+    </div>
+  </div>
+  <section class="section" style="padding-top: 0;">
+    <div class="wrap" id="dl-body">
+      <p style="font-family:var(--font-sans);color:var(--ink-soft);">加载中…</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<script src="/jx-catalog.js" defer></script>
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const body = document.getElementById('dl-body');
+    try {
+      const catalog = await JX.fetchCatalog();
+      const groups = [];
+      for (const mod of catalog.modules) {
+        const rows = [];
+        for (const ref of mod.references || []) {
+          rows.push({ name: ref.title, type: 'PDF', path: ref.path });
+        }
+        for (const ch of mod.chapters || []) {
+          for (const les of ch.lessons || []) {
+            for (const seg of les.segments || []) {
+              if (seg.audioPath)
+                rows.push({ name: `${les.title} · ${seg.title} · 音频`, type: '音频', path: seg.audioPath });
+              if (seg.videoPath)
+                rows.push({ name: `${les.title} · ${seg.title} · 视频`, type: '视频', path: seg.videoPath });
+            }
+          }
+        }
+        if (rows.length) groups.push({ title: mod.title, rows });
+      }
+      body.innerHTML = groups.length
+        ? groups
+            .map((g) => {
+              const tr = g.rows
+                .map((row) => {
+                  const url = JX.assetUrl(row.path);
+                  return `<tr>
+                    <td>${JX.escape(row.name)}</td>
+                    <td>${row.type}</td>
+                    <td>${url ? `<a href="${url}" download>下载</a>` : `待上传 · ${JX.escape(row.path)}`}</td>
+                  </tr>`;
+                })
+                .join('');
+              return `<p class="group-label">${JX.escape(g.title)}</p>
+                <table class="download-table"><thead><tr><th>内容</th><th>格式</th><th>状态</th></tr></thead><tbody>${tr}</tbody></table>`;
+            })
+            .join('')
+        : '<p class="note">暂无下载项。</p>';
+    } catch (e) {
+      body.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
+    }
+  });
+</script>

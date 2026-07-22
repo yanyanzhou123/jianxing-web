@@ -1,0 +1,52 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="参考资料" description="学修参考 PDF">
+  <div class="page-hero">
+    <div class="wrap">
+      <h1>参考资料</h1>
+      <p>参考书由各模块配置，文件上传至 R2 后可在此打开。</p>
+    </div>
+  </div>
+  <section class="section" style="padding-top: 0;">
+    <div class="wrap" id="ref-body">
+      <p style="font-family:var(--font-sans);color:var(--ink-soft);">加载中…</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<script src="/jx-catalog.js" defer></script>
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const body = document.getElementById('ref-body');
+    try {
+      const catalog = await JX.fetchCatalog();
+      const html = catalog.modules
+        .filter((m) => (m.references || []).length)
+        .map((mod) => {
+          const items = mod.references
+            .map((ref) => {
+              const url = JX.assetUrl(ref.path);
+              return `
+                <li>
+                  <a href="${url || '#'}">
+                    <span class="lesson-list__num">PDF</span>
+                    <div>
+                      <h2 class="lesson-list__title">《${JX.escape(ref.title)}》</h2>
+                      ${ref.meta ? `<p class="lesson-list__meta">${JX.escape(ref.meta)}</p>` : ''}
+                      <p class="lesson-list__summary">${url ? '点击打开或下载' : `待上传：${JX.escape(ref.path)}`}</p>
+                    </div>
+                  </a>
+                </li>`;
+            })
+            .join('');
+          return `<p class="group-label">${JX.escape(mod.title)}</p><ul class="lesson-list">${items}</ul>`;
+        })
+        .join('');
+      body.innerHTML = html || '<p class="note">暂无参考资料。</p>';
+    } catch (e) {
+      body.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
+    }
+  });
+</script>

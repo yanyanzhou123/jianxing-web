@@ -1,0 +1,249 @@
+﻿
+==== lesson-video.html ====
+match <title>([^<]+)</title> -> 三个差别 - 慧灯禅修课 | 慧灯禅修
+match tab=(audio|article|video) -> audio
+audio count 0
+video count 0
+iframe count 0
+source count 0
+kw mp4 8
+kw cloudfront 7
+kw player 1
+interesting typography rules 52
+.mui-bi37z0{margin:0;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:400;font-size:1rem;line-height:1.5;letter-spacing:0.00938em;font-family:PingFang SC,Hiragino Sans GB,Microsoft Yahei,Noto Sans CJK SC,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,Noto Sans,system-u
+---
+.mui-bi37z0{font-weight:600;font-size:18px;}
+---
+.mui-bi37z0{font-size:20px;}
+---
+.mui-bi37z0{font-size:20px;}
+---
+.mui-bi37z0{font-size:28px;}
+---
+.mui-p6tdtp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+---
+.mui-p6tdtp{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-p6tdtp{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-10105fp{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-10105fp{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-10105fp{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-1hcwl8m{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms
+---
+.mui-1hcwl8m{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-1hcwl8m{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-1fak9dt{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-1fak9dt{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-1fak9dt{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-h5kfnz{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+---
+.mui-h5kfnz{font-size:18px;padding:10px 20px;}
+---
+.mui-1td9zpp{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-1td9zpp{font-size:18px;padding:10px 20px;}
+---
+.mui-cpwz0a{font-size:20px;}
+---
+.mui-2upcq9{font-size:20px;}
+---
+.mui-1x0aqrs{min-width:1420px;max-width:1420px;}
+---
+.mui-1ilvxbp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;border-radius:4px;padding:11px;border:1px solid rgba(0, 0, 0, 0.12);color:rgba(0, 0, 0, 0.54);}
+---
+around title snippet:
+en\":[\"$\",\"$L23\",null,{\"color\":\"$undefined\",\"items\":[{\"label\":\"首页\",\"href\":\"/\"},{\"label\":\"慧灯禅修课\",\"href\":\"/course\"},{\"label\":\"禅修课 第一册\",\"href\":\"/course/1\"},{\"label\":\"三个差别\",\"href\":\"/course/1/lesson1\"}],\"useContext\":true}]}],[\"$\",\"$L1a\",null,{\"sx\":{\"position\":\"relative\",\"width\":\"100%\",\"height\":\"100%\",\"overflow\":\"visible\",\"pb\":5,\"mb\":5,\"borderRadius\":5},\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"
+
+==== lesson-audio.html ====
+match <title>([^<]+)</title> -> 三个差别 - 慧灯禅修课 | 慧灯禅修
+match tab=(audio|article|video) -> audio
+audio count 0
+video count 0
+iframe count 0
+source count 0
+kw mp4 7
+kw mp3 14
+kw cloudfront 10
+interesting typography rules 53
+.mui-bi37z0{margin:0;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:400;font-size:1rem;line-height:1.5;letter-spacing:0.00938em;font-family:PingFang SC,Hiragino Sans GB,Microsoft Yahei,Noto Sans CJK SC,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,Noto Sans,system-u
+---
+.mui-bi37z0{font-weight:600;font-size:18px;}
+---
+.mui-bi37z0{font-size:20px;}
+---
+.mui-bi37z0{font-size:20px;}
+---
+.mui-bi37z0{font-size:28px;}
+---
+.mui-p6tdtp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+---
+.mui-p6tdtp{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-p6tdtp{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-10105fp{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-10105fp{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-10105fp{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-1hcwl8m{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms
+---
+.mui-1hcwl8m{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-1hcwl8m{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-1fak9dt{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-1fak9dt{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-1fak9dt{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-h5kfnz{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+---
+.mui-h5kfnz{font-size:18px;padding:10px 20px;}
+---
+.mui-1td9zpp{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-1td9zpp{font-size:18px;padding:10px 20px;}
+---
+.mui-cpwz0a{font-size:20px;}
+---
+.mui-2upcq9{font-size:20px;}
+---
+.mui-1x0aqrs{min-width:1420px;max-width:1420px;}
+---
+.mui-1ilvxbp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;border-radius:4px;padding:11px;border:1px solid rgba(0, 0, 0, 0.12);color:rgba(0, 0, 0, 0.54);}
+---
+around title snippet:
+en\":[\"$\",\"$L23\",null,{\"color\":\"$undefined\",\"items\":[{\"label\":\"首页\",\"href\":\"/\"},{\"label\":\"慧灯禅修课\",\"href\":\"/course\"},{\"label\":\"禅修课 第一册\",\"href\":\"/course/1\"},{\"label\":\"三个差别\",\"href\":\"/course/1/lesson1\"}],\"useContext\":true}]}],[\"$\",\"$L1a\",null,{\"sx\":{\"position\":\"relative\",\"width\":\"100%\",\"height\":\"100%\",\"overflow\":\"visible\",\"pb\":5,\"mb\":5,\"borderRadius\":5},\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"
+
+==== lesson-article.html ====
+match <title>([^<]+)</title> -> 三个差别 - 慧灯禅修课 | 慧灯禅修
+match tab=(audio|article|video) -> article
+audio count 0
+video count 0
+iframe count 0
+source count 0
+kw mp4 7
+kw mp3 14
+kw cloudfront 12
+interesting typography rules 73
+.mui-bi37z0{margin:0;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:400;font-size:1rem;line-height:1.5;letter-spacing:0.00938em;font-family:PingFang SC,Hiragino Sans GB,Microsoft Yahei,Noto Sans CJK SC,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,Noto Sans,system-u
+---
+.mui-bi37z0{font-weight:600;font-size:18px;}
+---
+.mui-bi37z0{font-size:20px;}
+---
+.mui-bi37z0{font-size:20px;}
+---
+.mui-bi37z0{font-size:28px;}
+---
+.mui-p6tdtp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+---
+.mui-p6tdtp{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-p6tdtp{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-10105fp{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-10105fp{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-10105fp{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-1hcwl8m{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms
+---
+.mui-1hcwl8m{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-1hcwl8m{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-1fak9dt{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-1fak9dt{font-size:20px;padding-left:20px;padding-right:20px;}
+---
+.mui-1fak9dt{font-size:22px;padding-left:24px;padding-right:24px;}
+---
+.mui-h5kfnz{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;min-width:64px;padding:6px 16px;border:0;border-radius:4px;-webkit-transition:background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+---
+.mui-h5kfnz{font-size:18px;padding:10px 20px;}
+---
+.mui-1td9zpp{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:
+---
+.mui-1td9zpp{font-size:18px;padding:10px 20px;}
+---
+.mui-cpwz0a{font-size:20px;}
+---
+.mui-2upcq9{font-size:20px;}
+---
+.mui-1x0aqrs{min-width:1420px;max-width:1420px;}
+---
+.mui-1ilvxbp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-spacing:0.02857em;text-transform:uppercase;border-radius:4px;padding:11px;border:1px solid rgba(0, 0, 0, 0.12);color:rgba(0, 0, 0, 0.54);}
+---
+around title snippet:
+en\":[\"$\",\"$L23\",null,{\"color\":\"$undefined\",\"items\":[{\"label\":\"首页\",\"href\":\"/\"},{\"label\":\"慧灯禅修课\",\"href\":\"/course\"},{\"label\":\"禅修课 第一册\",\"href\":\"/course/1\"},{\"label\":\"三个差别\",\"href\":\"/course/1/lesson1\"}],\"useContext\":true}]}],[\"$\",\"$L1a\",null,{\"sx\":{\"position\":\"relative\",\"width\":\"100%\",\"height\":\"100%\",\"overflow\":\"visible\",\"pb\":5,\"mb\":5,\"borderRadius\":5},\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"
+
+==== sidebar_css ====
+.mui-1fhjpi2{position:absolute;top:0;z-index:1000;background:linear-gradient(180deg, rgba(157, 208, 250, 1) 0%, rgba(255, 166, 224, 1) 99.96%);border-top-right-radius:10px;border-bottom-right-radius:10px;border-bottom-left-radius:20px;border-top-left-radius:20px;padding-left:0px;padding-right:0px;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-flex-direction:column;-ms-flex-direction:column;flex-direction:column;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;}
+.mui-1fhjpi2{left:-50px;width:80px;}
+.mui-1fhjpi2{left:-66px;width:96px;padding-top:4px;padding-bottom:4px;}
+.mui-1fhjpi2{width:120px;padding-top:6.4px;padding-bottom:6.4px;}
+@media (min-width:0px){.mui-1fhjpi2{left:-50px;width:80px;}}
+@media (min-width:1920px){.mui-1fhjpi2{left:-66px;width:96px;padding-top:4px;padding-bottom:4px;}}
+@media (min-width:2560px){.mui-1fhjpi2{width:120px;padding-top:6.4px;padding-bottom:6.4px;}}
+.mui-11ivq5v{margin:0;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:400;font-size:1rem;line-height:1.5;letter-spacing:0.00938em;font-family:PingFang SC,Hiragino Sans GB,Microsoft Yahei,Noto Sans CJK SC,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,Noto Sans,system-ui,sans-serif,Roboto;color:#fff;font-weight:700;}
+.mui-11ivq5v{margin-top:12px;margin-bottom:4px;font-size:14px;}
+.mui-11ivq5v{margin-top:8px;margin-bottom:4px;font-size:16px;}
+.mui-11ivq5v{margin-top:16px;margin-bottom:8px;font-size:20px;}
+@media (min-width:0px){.mui-11ivq5v{margin-top:12px;margin-bottom:4px;font-size:14px;}}
+@media (min-width:1920px){.mui-11ivq5v{margin-top:8px;margin-bottom:4px;font-size:16px;}}
+@media (min-width:2560px){.mui-11ivq5v{margin-top:16px;margin-bottom:8px;font-size:20px;}}
+.mui-t9jx03{list-style:none;margin:0;padding:0;position:relative;padding-top:8px;padding-bottom:8px;width:100%;-webkit-flex:1;-ms-flex:1;flex:1;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-flex-direction:column;-ms-flex-direction:column;flex-direction:column;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:center;}
+.mui-jvty1w{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:center;position:relative;box-sizing:border-box;-webkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-flex:1;-webkit-flex-grow:1;-ms-flex-positive:1;flex-grow:1;-webkit-box-pack:start;-ms-flex-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;position:relative;-webkit-text-decoration:none;text-decoration:none;min-width:0;box-sizing:border-box;text-align:left;padding-top:8px;padding-bottom:8px;-webkit-transition:background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;transition:background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;padding-left:16px;padding-right:16px;padding:0px;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;background:white!important;border-radius:40px 0 0 40px;border-right:8px solid #fff;position:relative;}
+.mui-jvty1w{-webkit-print-color-adjust:exact;color-adjust:exact;}
+.mui-jvty1w{height:46px;}
+.mui-jvty1w{height:56px;}
+.mui-jvty1w{height:64px;}
+@media print{.mui-jvty1w{-webkit-print-color-adjust:exact;color-adjust:exact;}}
+@media (min-width:0px){.mui-jvty1w{height:46px;}}
+@media (min-width:1920px){.mui-jvty1w{height:56px;}}
+@media (min-width:2560px){.mui-jvty1w{height:64px;}}
+.mui-1w4dqr4{width:100%;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-flex-direction:column;-ms-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;color:rgba(86, 137, 204, 1);}
+.mui-4mgw0i{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:center;position:relative;box-sizing:border-box;-webkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-flex:1;-webkit-flex-grow:1;-ms-flex-positive:1;flex-grow:1;-webkit-box-pack:start;-ms-flex-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;position:relative;-webkit-text-decoration:none;text-decoration:none;min-width:0;box-sizing:border-box;text-align:left;padding-top:8px;padding-bottom:8px;-webkit-transition:background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;transition:background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;padding-left:16px;padding-right:16px;padding:0px;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;background:transparent;border-radius:none;border-right:none;position:relative;}
+.mui-4mgw0i{-webkit-print-color-adjust:exact;color-adjust:exact;}
+.mui-4mgw0i{height:46px;}
+.mui-4mgw0i{height:56px;}
+.mui-4mgw0i{height:64px;}
+@media print{.mui-4mgw0i{-webkit-print-color-adjust:exact;color-adjust:exact;}}
+@media (min-width:0px){.mui-4mgw0i{height:46px;}}
+@media (min-width:1920px){.mui-4mgw0i{height:56px;}}
+@media (min-width:2560px){.mui-4mgw0i{height:64px;}}
+.mui-115l41f{width:100%;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-flex-direction:column;-ms-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-ms-flex-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-align-items:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;color:#fff;}
+.mui-1c0355u{margin:0;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:400;font-size:1rem;line-height:1.5;letter-spacing:0.00938em;font-family:PingFang SC,Hiragino Sans GB,Microsoft Yahei,Noto Sans CJK SC,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,Noto Sans,system-ui,sans-serif,Roboto;font-weight:700;text-align:center;color:rgba(86, 137, 204, 1);}
+.mui-1xmd2pr{margin:0;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:400;font-size:1rem;line-height:1.5;letter-spacing:0.00938em;font-family:PingFang SC,Hiragino Sans GB,Microsoft Yahei,Noto Sans CJK SC,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,Noto Sans,system-ui,sans-serif,Roboto;font-weight:700;text-align:center;color:#fff;}
+.mui-4wrfah{border-left:none;box-sizing:border-box;}
+.mui-4wrfah{width:80px;height:80px;}
+.mui-4wrfah{width:100px;height:100px;}
+.mui-4wrfah{width:120px;height:120px;}
+@media (min-width:0px){.mui-4wrfah{width:80px;height:80px;}}
+@media (min-width:1920px){.mui-4wrfah{width:100px;height:100px;
+
+==== rsc sample ====
+python : Traceback (most recent call last):
+所在位置 C:\Users\49558\AppData\Local\Temp\ps-script-20c3199f-4d74-4cb1-89d8-419a2cc8ee7d.ps1:103 字符: 1
++ python 'D:\小程序\jianxing\_zen_extract3.py' 2>&1 | Out-File -FilePath ' ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "D:\小程序\jianxing\_zen_extract3.py", line 63, in <module>
+    print((base/"rsc_payloads.txt").read_text(encoding="utf-8")[:12000])
+UnicodeEncodeError: 'gbk' codec can't encode character '\xa6' in position 597: illegal multibyte sequence

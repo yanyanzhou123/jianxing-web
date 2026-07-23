@@ -1,0 +1,92 @@
+
+===== 音频 =====
+url(#wave_icon_g)\"}]\n"])</script><script>self.__next_f.push([1,"31:[\"$\",\"$L2e\",null,{\"sx\":{\"m\":0},\"primary\":[\"$\",\"$L1b\",null,{\"fontWeight\":700,\"textAlign\":\"center\",\"color\":\"#fff\",\"children\":\"音频\"}]}]\n"])</script><script>self.__next_f.push([1,"32:[\"$\",\"$L2b\",\"article\",{\"disablePadding\":true,\"sx\":{\"mb\":1,\"width\":\"100%\"},\"children\":[\"$\",\"$L1a\",null,{\"component\":\"a\",\"href\":\"/course/1/
+---
+t><div hidden id="S:8"><div class="MuiListItemText-root mui-18zb7o8"><span class="MuiTypography-root MuiTypography-body1 MuiListItemText-primary mui-1imrebr"><p class="MuiTypography-root MuiTypography-body1 mui-1xmd2pr">音频</p></span></div></div><script>$RS("S:8","P:8")</script><div hidden id="S:9"><li class="MuiListItem-root MuiListItem-gutters mui-1uawhqr"><a class="MuiBox-root mui-4wrfah" href="/course/1/lesson1?tab=article"><div class=
+---
+
+===== 文字 =====
+ 15.14 15.41 15.47 15 15.47Z\",\"fill\":\"url(#char_icon_g)\"}]]}]}],[\"$\",\"$L2e\",null,{\"sx\":{\"m\":0},\"primary\":[\"$\",\"$L1b\",null,{\"fontWeight\":700,\"textAlign\":\"center\",\"color\":\"#fff\",\"children\":\"文字\"}]}]]}]}]}]}]\n"])</script><script>self.__next_f.push([1,"33:[\"$\",\"$L2b\",\"qa\",{\"disablePadding\":true,\"sx\":{\"mb\":0,\"width\":\"100%\"},\"children\":[\"$\",\"$L1a\",null,{\"component\":\"a\",\"href\":\"/qa/1/
+---
+_icon_g)"></path></svg><div class="MuiListItemText-root mui-18zb7o8"><span class="MuiTypography-root MuiTypography-body1 MuiListItemText-primary mui-1imrebr"><p class="MuiTypography-root MuiTypography-body1 mui-1xmd2pr">文字</p></span></div></div></div></a></li></div><script>$RS("S:9","P:9")</script><div hidden id="S:a"><li class="MuiListItem-root MuiListItem-gutters mui-1ld1rsc"><a class="MuiBox-root mui-4wrfah" href="/qa/1/lesson1"><div c
+---
+
+===== 问答 =====
+yyrg"><button class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary mui-10105fp" tabindex="0" type="button"><a href="/qa/1">禅修课问答</a><span class="MuiButton-icon MuiButton-endIcon MuiButton-iconSizeMedium mui-1g78ho2"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit mui-1l6e05h" focusable="false" aria-hidden="true" viewBox="0 0 24 24"><path f
+---
+,\"slug\":\"1\"},{\"name\":\"禅修课 第二册\",\"slug\":\"2\"},{\"name\":\"禅修课 第三册\",\"slug\":\"3\"},{\"name\":\"禅修课 第四册\",\"slug\":\"4\"},{\"name\":\"寂止的修法\",\"slug\":\"5\"},{\"name\":\"空性的修法\",\"slug\":\"6\"}]},{\"name\":\"禅修课问答\",\"title\":\"禅修课问答\",\"description\":\"\",\"slug\":\"qa\",\"subMenu\":[{\"name\":\"禅修课 第一册\",\"slug\":\"1\"},{\"name\":\"禅修课 第二册\",\"slug\":\"2\"},{\"name\":\"禅修课 第三册\",\"slug\":\"3\"},{\"name\":\"禅修课 第四册\",\"slug\":\"
+---
+name\":\"禅修课 第二册\",\"slug\":\"2\"},{\"name\":\"禅修课 第三册\",\"slug\":\"3\"},{\"name\":\"禅修课 第四册\",\"slug\":\"4\"},{\"name\":\"寂止的修法\",\"slug\":\"5\"},{\"name\":\"空性的修法\",\"slug\":\"6\"}]},{\"name\":\"禅修课问答\",\"title\":\"禅修课问答\",\"description\":\"\",\"slug\":\"qa\",\"subMenu\":[{\"name\":\"禅修课 第一册\",\"slug\":\"1\"},{\"name\":\"禅修课 第二册\",\"slug\":\"2\"},{\"name\":\"禅修课 第三册\",\"slug\":\"3\"},{\"name\":\"禅修课 第四册\",\"slug\":\"4\"},{\"name\":\"寂止的
+---
+18.8125Z\",\"fillRule\":\"evenodd\",\"fill\":\"currentColor\"}]]}]}],[\"$\",\"$L2e\",null,{\"sx\":{\"m\":0},\"primary\":[\"$\",\"$L1b\",null,{\"fontWeight\":700,\"textAlign\":\"center\",\"color\":\"#fff\",\"children\":\"问答\"}]}]]}]}]}]}]\n"])</script><link rel="preload" as="image" href="https://d2e6j3zdpz3g2k.cloudfront.net/fhfy/image/jpg/va/L14001.jpg"/><title>第一册 - 慧灯禅修课 | 慧灯禅修</title><meta name="description" content="慧灯禅修网站课程"/><link r
+---
+entColor"></path></svg><div class="MuiListItemText-root mui-18zb7o8"><span class="MuiTypography-root MuiTypography-body1 MuiListItemText-primary mui-1imrebr"><p class="MuiTypography-root MuiTypography-body1 mui-1xmd2pr">问答</p></span></div></div></div></a></li></div><script>$RS("S:a","P:a")</script><script>$RC("B:1","S:1")</script></body></html>
+---
+
+===== 视频 =====
+,null,{\"d\":\"M0 0L24 0L24 24L0 24L0 0Z\"}]}]]}]}],[\"$\",\"$L2e\",null,{\"sx\":{\"m\":0},\"primary\":[\"$\",\"$L1b\",null,{\"fontWeight\":700,\"textAlign\":\"center\",\"color\":\"rgba(86, 137, 204, 1)\",\"children\":\"视频\"}]}]]}]}]}]}],[\"$\",\"$L2b\",\"audio\",{\"disablePadding\":true,\"sx\":{\"mb\":1,\"width\":\"100%\"},\"children\":[\"$\",\"$L1a\",null,{\"component\":\"a\",\"href\":\"/course/1/lesson1?tab=audio\",\"sx\":{\"width\":{\
+---
+0 0Z"></path></g></svg><div class="MuiListItemText-root mui-18zb7o8"><span class="MuiTypography-root MuiTypography-body1 MuiListItemText-primary mui-1imrebr"><p class="MuiTypography-root MuiTypography-body1 mui-1c0355u">视频</p></span></div></div></div></a></li><li class="MuiListItem-root MuiListItem-gutters mui-1uawhqr"><a class="MuiBox-root mui-4wrfah" href="/course/1/lesson1?tab=audio"><div class="MuiButtonBase-root MuiListItemButton-roo
+---
+689 17.7225 7.49134 17.3675 7.29816 17.129C7.10499 16.8905 6.75041 16.8549 6.51732 17.0546L5.51338 17.9098L5.51338 15.1087Z" fill-rule="evenodd"></path></svg><p class="MuiTypography-root MuiTypography-body1 mui-1imrebr">视频<!-- -->下载</p></button></div></div><div class="MuiBox-root mui-u0rq4q"><div class="MuiBox-root mui-zgespb"><span class="MuiSkeleton-root MuiSkeleton-rectangular MuiSkeleton-wave mui-1fk42sc" style="width:100%;height:100%
+---
+
+===== 相关资料 =====
+ildren\":[[\"$\",\"$L1b\",null,{\"sx\":{\"color\":\"#fff\",\"mt\":{\"lg\":1.5,\"xl\":1,\"xxl\":2},\"mb\":{\"lg\":0.5,\"xl\":0.5,\"xxl\":1},\"fontSize\":{\"lg\":14,\"xl\":16,\"xxl\":20},\"fontWeight\":700},\"children\":\"相关资料\"}],[\"$\",\"$L2a\",null,{\"sx\":{\"width\":\"100%\",\"flex\":1,\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\",\"\u0026 .MuiTypography-root\":{\"fontSize\":{\"l
+---
+emoveChild(b)};$RC("B:5","S:5")</script><div hidden id="S:0"></div><script>$RC("B:0","S:0")</script><div hidden id="S:4"><div class="MuiBox-root mui-1fhjpi2"><p class="MuiTypography-root MuiTypography-body1 mui-11ivq5v">相关资料</p><ul class="MuiList-root MuiList-padding mui-t9jx03"><li class="MuiListItem-root MuiListItem-gutters mui-1uawhqr"><a class="MuiBox-root mui-cd5vl3" href="/course/1/lesson1"><div class="MuiButtonBase-root MuiListItemBu
+---
+
+===== 上一课 =====
+utton-endIcon\":{\"marginLeft\":\"0 !important\"},\"mt\":4},\"children\":[[\"$\",\"$L1c\",null,{\"component\":\"a\",\"href\":\"/course/1/lesson0\",\"startIcon\":[\"$\",\"$L27\",null,{}],\"disabled\":false,\"children\":\"上一课\"}],[\"$\",\"$L1c\",null,{\"component\":\"a\",\"href\":\"/course/1/lesson2\",\"endIcon\":[\"$\",\"$L28\",null,{}],\"disabled\":false,\"children\":\"下一课\"}]]}]]}]]}]]\n"])</script><script>self.__next_f.push([1,"b:{\"meta
+---
+ mui-cveorv"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit mui-1l6e05h" focusable="false" aria-hidden="true" viewBox="0 0 24 24"><path d="M11.67 3.87 9.9 2.1 0 12l9.9 9.9 1.77-1.77L3.54 12z"></path></svg></span>上一课</a><a class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary mui-1ud6s7i" tabindex="0" href="/course/1/lesson2">下一课<span class=
+---
+
+===== 下一课 =====
+rtIcon\":[\"$\",\"$L27\",null,{}],\"disabled\":false,\"children\":\"上一课\"}],[\"$\",\"$L1c\",null,{\"component\":\"a\",\"href\":\"/course/1/lesson2\",\"endIcon\":[\"$\",\"$L28\",null,{}],\"disabled\":false,\"children\":\"下一课\"}]]}]]}]]}]]\n"])</script><script>self.__next_f.push([1,"b:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"第一册 - 慧灯禅修课 | 慧灯禅修\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"慧灯禅修网站课程\"}],[\"$\",
+---
+/svg></span>上一课</a><a class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary mui-1ud6s7i" tabindex="0" href="/course/1/lesson2">下一课<span class="MuiButton-icon MuiButton-endIcon MuiButton-iconSizeMedium mui-1g78ho2"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit mui-1l6e05h" focusable="false" aria-hidden="true" viewBox="0 0 24 24"><path d="M6
+---
+
+===== 视频下载 =====
+
+===== Mui-selected =====
+wrap:nowrap;flex-wrap:nowrap;overflow-x:auto;border-radius:80px;background:rgba(255, 255, 255, 0.7);-webkit-backdrop-filter:blur(300px);backdrop-filter:blur(300px);opacity:0.75;}.mui-piubt1 .MuiToggleButtonGroup-grouped.Mui-selected+.MuiToggleButtonGroup-grouped.Mui-selected{border-left:0;margin-left:0;}.mui-piubt1 .MuiToggleButtonGroup-firstButton,.mui-piubt1 .MuiToggleButtonGroup-middleButton{border-top-right-radius:0;border-bottom-right-radius:0
+---
+o;border-radius:80px;background:rgba(255, 255, 255, 0.7);-webkit-backdrop-filter:blur(300px);backdrop-filter:blur(300px);opacity:0.75;}.mui-piubt1 .MuiToggleButtonGroup-grouped.Mui-selected+.MuiToggleButtonGroup-grouped.Mui-selected{border-left:0;margin-left:0;}.mui-piubt1 .MuiToggleButtonGroup-firstButton,.mui-piubt1 .MuiToggleButtonGroup-middleButton{border-top-right-radius:0;border-bottom-right-radius:0;}.mui-piubt1 .MuiToggleButtonGroup-lastBut
+---
+22px;min-height:44px;margin-top:4px;margin-bottom:4px;padding-left:48px;padding-right:48px;padding-top:12px;padding-bottom:12px;}}.mui-piubt1 .MuiToggleButtonGroup-grouped:hover,.mui-piubt1 .MuiToggleButtonGroup-grouped.Mui-selected,.mui-piubt1 .MuiToggleButtonGroup-grouped.Mui-active{background:linear-gradient(90deg, rgb(70, 135, 207) 0%,rgb(169, 206, 250) 100%);color:white;border-color:transparent;}.mui-piubt1 .MuiToggleButtonGroup-grouped:active
+---
+gba(30, 136, 229, 0.2);}.mui-piubt1 .MuiToggleButtonGroup-grouped.Mui-disabled{border-color:rgba(154, 189, 230, 0.3);color:rgba(154, 189, 230, 0.3);background-color:transparent;}.mui-piubt1 .MuiToggleButtonGroup-grouped.Mui-selected{background:linear-gradient(90deg, rgb(70, 135, 207) 0%,rgb(169, 206, 250) 100%);color:white;}.mui-1ilvxbp{font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-height:1.75;letter-sp
+---
+x solid rgba(0, 0, 0, 0.12);}.mui-1ilvxbp:hover{-webkit-text-decoration:none;text-decoration:none;background-color:rgba(0, 0, 0, 0.04);}@media (hover: none){.mui-1ilvxbp:hover{background-color:transparent;}}.mui-1ilvxbp.Mui-selected{color:rgba(0, 0, 0, 0.87);background-color:rgba(0, 0, 0, 0.08);}.mui-1ilvxbp.Mui-selected:hover{background-color:rgba(0, 0, 0, 0.12);}@media (hover: none){.mui-1ilvxbp.Mui-selected:hover{background-color:rgba(0, 0, 0, 0
+---
+on:none;background-color:rgba(0, 0, 0, 0.04);}@media (hover: none){.mui-1ilvxbp:hover{background-color:transparent;}}.mui-1ilvxbp.Mui-selected{color:rgba(0, 0, 0, 0.87);background-color:rgba(0, 0, 0, 0.08);}.mui-1ilvxbp.Mui-selected:hover{background-color:rgba(0, 0, 0, 0.12);}@media (hover: none){.mui-1ilvxbp.Mui-selected:hover{background-color:rgba(0, 0, 0, 0.08);}}.mui-1nmv284{display:-webkit-inline-box;display:-webkit-inline-flex;display:-ms-inl
+---
+
+===== tab= =====
+137, 204, 1)\",\"children\":\"视频\"}]}]]}]}]}]}],[\"$\",\"$L2b\",\"audio\",{\"disablePadding\":true,\"sx\":{\"mb\":1,\"width\":\"100%\"},\"children\":[\"$\",\"$L1a\",null,{\"component\":\"a\",\"href\":\"/course/1/lesson1?tab=audio\",\"sx\":{\"width\":{\"lg\":80,\"xl\":100,\"xxl\":120},\"height\":{\"lg\":80,\"xl\":100,\"xxl\":120},\"borderLeft\":\"none\",\"boxSizing\":\"border-box\"},\"children\":[\"$\",\"$L2c\",null,{\"selected\":false,\"sx\
+---
+"])</script><script>self.__next_f.push([1,"32:[\"$\",\"$L2b\",\"article\",{\"disablePadding\":true,\"sx\":{\"mb\":1,\"width\":\"100%\"},\"children\":[\"$\",\"$L1a\",null,{\"component\":\"a\",\"href\":\"/course/1/lesson1?tab=article\",\"sx\":{\"width\":{\"lg\":80,\"xl\":100,\"xxl\":120},\"height\":{\"lg\":80,\"xl\":100,\"xxl\":120},\"borderLeft\":\"none\",\"boxSizing\":\"border-box\"},\"children\":[\"$\",\"$L2c\",null,{\"selected\":false,\"s
+---
+p class="MuiTypography-root MuiTypography-body1 mui-1c0355u">视频</p></span></div></div></div></a></li><li class="MuiListItem-root MuiListItem-gutters mui-1uawhqr"><a class="MuiBox-root mui-4wrfah" href="/course/1/lesson1?tab=audio"><div class="MuiButtonBase-root MuiListItemButton-root MuiListItemButton-gutters mui-4mgw0i" tabindex="0" role="button"><div class="MuiBox-root mui-115l41f"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit mu
+---
+hy-body1 mui-1xmd2pr">音频</p></span></div></div><script>$RS("S:8","P:8")</script><div hidden id="S:9"><li class="MuiListItem-root MuiListItem-gutters mui-1uawhqr"><a class="MuiBox-root mui-4wrfah" href="/course/1/lesson1?tab=article"><div class="MuiButtonBase-root MuiListItemButton-root MuiListItemButton-gutters mui-4mgw0i" tabindex="0" role="button"><div class="MuiBox-root mui-115l41f"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit 
+---
+
+===== writing-mode =====
+
+===== vertical =====
+bkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-heigh
+---
+bkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-heigh
+---
+bkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-heigh
+---
+line-box;display:-webkit-inline-flex;display:-ms-inline-flexbox;display:inline-flex;-webkit-flex-direction:column;-ms-flex-direction:column;flex-direction:column;position:relative;min-width:0;padding:0;margin:0;border:0;vertical-align:top;}.mui-1aw90ri .MuiOutlinedInput-root fieldset{border-color:rgba(130, 178, 232, 0.6);}.mui-1aw90ri .MuiOutlinedInput-root:hover fieldset{border-color:#82B2E8;}.mui-1aw90ri .MuiOutlinedInput-root.Mui-focused fie
+---
+bkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;text-align:center;-webkit-flex:0 0 auto;-ms-flex:0 0 auto;flex:0 0 auto;font-size:1.5rem;padding:
+---
+bkit-tap-highlight-color:transparent;background-color:transparent;outline:0;border:0;margin:0;border-radius:0;padding:0;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;vertical-align:middle;-moz-appearance:none;-webkit-appearance:none;-webkit-text-decoration:none;text-decoration:none;color:inherit;font-family:"Roboto","Helvetica","Arial",sans-serif;font-weight:500;font-size:0.875rem;line-heigh
+---

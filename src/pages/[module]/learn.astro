@@ -1,0 +1,295 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getModule } from '../../data/content';
+
+export function getStaticPaths() {
+  return ['lunhui', 'qianxing', 'foguang', 'buli'].map((module) => ({
+    params: { module },
+  }));
+}
+
+const moduleSlug = Astro.params.module!;
+const seed = getModule(moduleSlug);
+---
+
+<BaseLayout title={seed?.title || '课程'} description="课程学习">
+  <article class="page-hero learn-page">
+    <div class="learn-shell" id="lesson-root">
+      <p class="group-label" style="margin-top: 0;" id="lesson-crumb">加载中…</p>
+      <h1 id="lesson-title">…</h1>
+      <p id="lesson-summary"></p>
+      <p class="lesson-list__meta" id="lesson-meta"></p>
+      <div id="lesson-stage"></div>
+      <nav class="lesson-nav" aria-label="上下课" id="lesson-nav"></nav>
+    </div>
+  </article>
+</BaseLayout>
+
+<script src="/jx-catalog.js" defer></script>
+<script is:inline define:vars={{ moduleSlug }}>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    const root = document.getElementById('lesson-root');
+    if (!id) {
+      root.innerHTML = `<p>缺少课程 id。</p><p><a href="/${moduleSlug}/">返回目录</a></p>`;
+      return;
+    }
+
+    try {
+      const catalog = await JX.fetchCatalog();
+      const found = JX.findLesson(catalog, moduleSlug, id);
+      if (!found) {
+        root.innerHTML = `<p>未找到课程。</p><p><a href="/${moduleSlug}/">返回目录</a></p>`;
+        return;
+      }
+
+      const { mod, chapter, lesson, lessonsFlat } = found;
+      const segs = lesson.segments || [];
+      document.title = `${lesson.title} · 见行修学`;
+      document.getElementById('lesson-crumb').textContent = `《${mod.title}》 · ${chapter.title}`;
+      document.getElementById('lesson-title').textContent = lesson.title;
+      document.getElementById('lesson-summary').textContent = lesson.summary || '';
+      document.getElementById('lesson-meta').textContent = JX.formatLessonMeta(lesson);
+
+      const hasVideo = segs.some((s) => s.videoPath && String(s.videoPath).trim());
+      const hasAudio = segs.some((s) => s.audioPath && String(s.audioPath).trim());
+      const hasText = segs.some((s) => s.text && String(s.text).trim()) || segs.length > 0;
+
+      // 有内容才出现对应标签；无视频则完全不显示「视」
+      const allowed = [];
+      if (hasVideo) allowed.push('video');
+      if (hasText) allowed.push('text');
+      if (hasAudio) allowed.push('audio');
+      if (!allowed.length) allowed.push('text');
+
+      let tab = params.get('tab') || '';
+      if (!allowed.includes(tab)) {
+        // 默认进「文字/听读」，方便边听边看
+        tab = allowed.includes('text') ? 'text' : allowed[0];
+      }
+
+      const stage = document.getElementById('lesson-stage');
+      const showSegTitle = segs.length > 1;
+      const audioSegs = segs
+        .map((seg, i) => ({ seg, i }))
+        .filter(({ seg }) => seg.audioPath && String(seg.audioPath).trim());
+
+      function setTabInUrl(next) {
+        const qs = new URLSearchParams(location.search);
+        qs.set('id', id);
+        qs.set('tab', next);
+        history.replaceState(null, '', `${location.pathname}?${qs.toString()}`);
+      }
+
+      function segHeading(seg, i, tag = 'p') {
+        if (!showSegTitle) return '';
+        const label = seg.title || `小节${i + 1}`;
+        if (tag === 'h2') {
+          return `<h2 class="learn-text-block__title">${JX.escape(label)}</h2>`;
+        }
+        return `<p class="group-label">${JX.escape(label)}</p>`;
+      }
+
+      function mediaBlock(kind, seg, i) {
+        const path = kind === 'video' ? seg.videoPath : seg.audioPath;
+        const url = JX.assetUrl(path);
+        const head = segHeading(seg, i);
+        if (!path || !String(path).trim()) {
+          return `
+            <section class="learn-media-item">
+              ${head}
+              <p class="audio-box__empty">本小节暂无${kind === 'video' ? '视频' : '音频'}</p>
+            </section>`;
+        }
+        if (!url) {
+          return `
+            <section class="learn-media-item">
+              ${head}
+              <p class="audio-box__empty">已登记路径，但媒体域名未配置：${JX.escape(path)}</p>
+            </section>`;
+        }
+        if (kind === 'video') {
+          return `
+            <section class="learn-media-item">
+              ${head}
+              <div class="learn-video">
+                <video controls preload="metadata" src="${url}"></video>
+              </div>
+            </section>`;
+        }
+        return `
+          <section class="learn-media-item">
+            ${head}
+            <div class="audio-box learn-audio">
+              <audio controls preload="none" src="${url}"></audio>
+            </div>
+          </section>`;
+      }
+
+      function renderTextWithListen() {
+        const textBody = segs.length
+          ? segs
+              .map((seg, i) => {
+                return `
+                  <section class="learn-text-block">
+                    ${segHeading(seg, i, 'h2')}
+                    <div class="prose learn-prose">${
+                      seg.text
+                        ? JX.formatText(seg.text)
+                        : '<p class="audio-box__empty">暂无文字</p>'
+                    }</div>
+                  </section>`;
+              })
+              .join('')
+          : '<p class="audio-box__empty">本课暂无小节，请在运营后台添加。</p>';
+
+        if (!audioSegs.length) return textBody;
+
+        const options = audioSegs
+          .map(({ seg, i }, idx) => {
+            const label = showSegTitle
+              ? seg.title || `小节${i + 1}`
+              : `音频${audioSegs.length > 1 ? idx + 1 : ''}`.trim() || '音频';
+            const name = showSegTitle || audioSegs.length > 1 ? label : '本课音频';
+            return `<option value="${idx}">${JX.escape(name)}</option>`;
+          })
+          .join('');
+
+        const first = audioSegs[0];
+        const firstUrl = JX.assetUrl(first.seg.audioPath);
+        const selectHtml =
+          audioSegs.length > 1
+            ? `<label class="learn-dock__pick">段落
+                <select id="listen-seg">${options}</select>
+              </label>`
+            : `<span class="learn-dock__label">音频</span>`;
+
+        return `
+          <div class="learn-listen-dock" id="listen-dock">
+            <div class="learn-dock__row">
+              ${selectHtml}
+              <div class="learn-dock__player">
+                ${
+                  firstUrl
+                    ? `<audio id="listen-audio" controls preload="metadata" src="${firstUrl}"></audio>`
+                    : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
+                }
+              </div>
+            </div>
+            <p class="learn-dock__hint">可一边听音频，一边向下阅读文字</p>
+          </div>
+          <div class="learn-text-flow">${textBody}</div>`;
+      }
+
+      function bindListenDock() {
+        const audio = document.getElementById('listen-audio');
+        const select = document.getElementById('listen-seg');
+        if (!audio || !select) return;
+        select.addEventListener('change', () => {
+          const item = audioSegs[Number(select.value)];
+          if (!item) return;
+          const url = JX.assetUrl(item.seg.audioPath);
+          if (!url) return;
+          audio.src = url;
+          audio.play().catch(() => {});
+        });
+      }
+
+      function renderPanel(current) {
+        let body = '';
+        if (current === 'video') {
+          const items = segs.filter((s) => s.videoPath && String(s.videoPath).trim());
+          body = items.length
+            ? items.map((seg) => mediaBlock('video', seg, segs.indexOf(seg))).join('')
+            : '<p class="audio-box__empty">本课暂无视频。</p>';
+        } else if (current === 'audio') {
+          const items = segs.filter((s) => s.audioPath && String(s.audioPath).trim());
+          body = items.length
+            ? items.map((seg) => mediaBlock('audio', seg, segs.indexOf(seg))).join('')
+            : '<p class="audio-box__empty">本课暂无音频。</p>';
+        } else {
+          body = renderTextWithListen();
+        }
+
+        const tabMeta = {
+          video: { icon: '视', label: '视频' },
+          text: { icon: '文', label: hasAudio ? '听读' : '文字' },
+          audio: { icon: '音', label: '音频' },
+        };
+
+        // 只渲染有内容的标签；无视频则不出现「视」
+        const tabsHtml = allowed
+          .map((key) => {
+            const on = current === key;
+            const meta = tabMeta[key];
+            return `
+              <button type="button"
+                class="learn-tab${on ? ' is-active' : ''}"
+                data-tab="${key}"
+                aria-pressed="${on ? 'true' : 'false'}">
+                <span class="learn-tab__icon" aria-hidden="true">${meta.icon}</span>
+                <span class="learn-tab__label">${meta.label}</span>
+              </button>`;
+          })
+          .join('');
+
+        const showRail = allowed.length > 1;
+
+        stage.innerHTML = showRail
+          ? `
+          <div class="learn-stage">
+            <aside class="learn-rail" aria-label="内容形式">
+              <p class="learn-rail__title">浏览</p>
+              ${tabsHtml}
+            </aside>
+            <div class="learn-card" data-tab="${current}">
+              ${body}
+            </div>
+          </div>`
+          : `
+          <div class="learn-stage learn-stage--solo">
+            <div class="learn-card" data-tab="${current}">
+              ${body}
+            </div>
+          </div>`;
+
+        if (current === 'text') bindListenDock();
+
+        stage.querySelectorAll('.learn-tab').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const next = btn.getAttribute('data-tab');
+            if (!next || next === current) return;
+            stage.querySelectorAll('video, audio').forEach((el) => {
+              try {
+                el.pause();
+              } catch {}
+            });
+            setTabInUrl(next);
+            renderPanel(next);
+          });
+        });
+      }
+
+      renderPanel(tab);
+      setTabInUrl(tab);
+
+      const idx = lessonsFlat.findIndex((l) => l.slug === lesson.slug);
+      const prev = idx > 0 ? lessonsFlat[idx - 1] : null;
+      const next = idx >= 0 && idx < lessonsFlat.length - 1 ? lessonsFlat[idx + 1] : null;
+      document.getElementById('lesson-nav').innerHTML = `
+        <div>${
+          prev
+            ? `<a href="/${moduleSlug}/learn/?id=${encodeURIComponent(prev.slug)}"><span>上一课</span>${JX.escape(prev.title)}</a>`
+            : '<span></span>'
+        }</div>
+        <div style="text-align:right;">${
+          next
+            ? `<a href="/${moduleSlug}/learn/?id=${encodeURIComponent(next.slug)}"><span>下一课</span>${JX.escape(next.title)}</a>`
+            : `<a href="/${moduleSlug}/"><span>目录</span>返回课次列表</a>`
+        }</div>`;
+    } catch (e) {
+      root.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
+    }
+  });
+</script>

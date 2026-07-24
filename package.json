@@ -1,7 +1,7 @@
 {
   "name": "jianxing",
   "type": "module",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -10,7 +10,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "deploy": "astro build && wrangler pages deploy --project-name=jianxing"
+    "deploy": "astro build && wrangler pages deploy --project-name=jianxing --branch main"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.0",

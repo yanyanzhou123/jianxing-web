@@ -1,19 +1,13 @@
 import seed from '../content/catalog.seed.json';
 
-export type Segment = {
-  id: string;
-  title: string;
-  text: string;
-  audioPath: string;
-  videoPath: string;
-};
-
 export type Lesson = {
   id: string;
   slug: string;
   title: string;
   summary: string;
-  segments: Segment[];
+  text: string;
+  audioPath: string;
+  videoPath: string;
 };
 
 export type Chapter = {
@@ -57,19 +51,11 @@ export function lessonCount(mod: LearningModule) {
   return (mod.chapters || []).reduce((n, ch) => n + (ch.lessons?.length || 0), 0);
 }
 
-export function segmentCounts(lesson: Lesson) {
-  const segs = lesson.segments || [];
-  return {
-    segments: segs.length,
-    texts: segs.filter((s) => s.text?.trim()).length,
-    audios: segs.filter((s) => s.audioPath?.trim()).length,
-    videos: segs.filter((s) => s.videoPath?.trim()).length,
-  };
-}
-
 export function formatLessonMeta(lesson: Lesson) {
-  const c = segmentCounts(lesson);
-  return `小节 ${c.segments} · 文 ${c.texts} · 音 ${c.audios} · 视 ${c.videos}`;
+  const texts = lesson.text?.trim() ? 1 : 0;
+  const audios = lesson.audioPath?.trim() ? 1 : 0;
+  const videos = lesson.videoPath?.trim() ? 1 : 0;
+  return `文 ${texts} · 音 ${audios} · 视 ${videos}`;
 }
 
 export const modules = seedCatalog.modules.map((m) => ({

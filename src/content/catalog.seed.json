@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "references": [
     {
       "id": "ref-puxian",
@@ -29,7 +29,7 @@
       "summary": "依《大圆满前行引导文·普贤上师言教》次第讲解。",
       "status": "open",
       "statusLabel": "第一期开放中",
-      "intro": "依《大圆满前行引导文·普贤上师言教》（华智仁波切造 · 索达吉堪布译）。结构可在运营页编辑：章节 → 课 → 小节。",
+      "intro": "依《大圆满前行引导文·普贤上师言教》（华智仁波切造 · 索达吉堪布译）。结构可在运营页编辑：章节 → 课。",
       "references": [],
       "chapters": [
         {
@@ -41,15 +41,9 @@
               "slug": "xuexiu-yindao",
               "title": "学修引导",
               "summary": "本书简介、译本说明与学修建议。",
-              "segments": [
-                {
-                  "id": "seg-guide-1",
-                  "title": "导读",
-                  "text": "欢迎在见行学会《大圆满前行-讲解》中学修。\n\n本模块结构：章节 → 课 → 小节。每个小节可配置文字、音频、视频。\n\n请在运营页继续完善内容。",
-                  "audioPath": "",
-                  "videoPath": ""
-                }
-              ]
+              "text": "欢迎在见行学会《大圆满前行-讲解》中学修。\n\n本模块结构：章节 → 课。每课可配置文字、音频、视频。\n\n请在运营页继续完善内容。",
+              "audioPath": "",
+              "videoPath": ""
             }
           ]
         },
@@ -62,75 +56,45 @@
               "slug": "wenfa-01",
               "title": "第1课",
               "summary": "闻法方式第1课。",
-              "segments": [
-                {
-                  "id": "seg-w1-1",
-                  "title": "小节1",
-                  "text": "（占位文字）请在运营页编辑本小节。",
-                  "audioPath": "qianxing/wenfa-01/seg-1.mp3",
-                  "videoPath": "qianxing/wenfa-01/seg-1.mp4"
-                }
-              ]
+              "text": "（占位文字）请在运营页编辑本课。",
+              "audioPath": "qianxing/wenfa-01/seg-1.mp3",
+              "videoPath": "qianxing/wenfa-01/seg-1.mp4"
             },
             {
               "id": "les-wenfa-02",
               "slug": "wenfa-02",
               "title": "第2课",
               "summary": "闻法方式第2课。",
-              "segments": [
-                {
-                  "id": "seg-w2-1",
-                  "title": "小节1",
-                  "text": "（占位文字）请在运营页编辑本小节。",
-                  "audioPath": "qianxing/wenfa-02/seg-1.mp3",
-                  "videoPath": "qianxing/wenfa-02/seg-1.mp4"
-                }
-              ]
+              "text": "（占位文字）请在运营页编辑本课。",
+              "audioPath": "qianxing/wenfa-02/seg-1.mp3",
+              "videoPath": "qianxing/wenfa-02/seg-1.mp4"
             },
             {
               "id": "les-wenfa-03",
               "slug": "wenfa-03",
               "title": "第3课",
               "summary": "闻法方式第3课。",
-              "segments": [
-                {
-                  "id": "seg-w3-1",
-                  "title": "小节1",
-                  "text": "（占位文字）请在运营页编辑本小节。",
-                  "audioPath": "qianxing/wenfa-03/seg-1.mp3",
-                  "videoPath": "qianxing/wenfa-03/seg-1.mp4"
-                }
-              ]
+              "text": "（占位文字）请在运营页编辑本课。",
+              "audioPath": "qianxing/wenfa-03/seg-1.mp3",
+              "videoPath": "qianxing/wenfa-03/seg-1.mp4"
             },
             {
               "id": "les-wenfa-04",
               "slug": "wenfa-04",
               "title": "第4课",
               "summary": "闻法方式第4课。",
-              "segments": [
-                {
-                  "id": "seg-w4-1",
-                  "title": "小节1",
-                  "text": "（占位文字）请在运营页编辑本小节。",
-                  "audioPath": "qianxing/wenfa-04/seg-1.mp3",
-                  "videoPath": "qianxing/wenfa-04/seg-1.mp4"
-                }
-              ]
+              "text": "（占位文字）请在运营页编辑本课。",
+              "audioPath": "qianxing/wenfa-04/seg-1.mp3",
+              "videoPath": "qianxing/wenfa-04/seg-1.mp4"
             },
             {
               "id": "les-wenfa-05",
               "slug": "wenfa-05",
               "title": "第5课",
               "summary": "闻法方式第5课。",
-              "segments": [
-                {
-                  "id": "seg-w5-1",
-                  "title": "小节1",
-                  "text": "（占位文字）请在运营页编辑本小节。",
-                  "audioPath": "qianxing/wenfa-05/seg-1.mp3",
-                  "videoPath": "qianxing/wenfa-05/seg-1.mp4"
-                }
-              ]
+              "text": "（占位文字）请在运营页编辑本课。",
+              "audioPath": "qianxing/wenfa-05/seg-1.mp3",
+              "videoPath": "qianxing/wenfa-05/seg-1.mp4"
             }
           ]
         },
@@ -143,90 +107,54 @@
               "slug": "xiaman-nande",
               "title": "暇满难得",
               "summary": "思维闲暇与圆满。",
-              "segments": [
-                {
-                  "id": "seg-xm-1",
-                  "title": "小节1",
-                  "text": "（占位）暇满难得。",
-                  "audioPath": "qianxing/xiaman-nande/seg-1.mp3",
-                  "videoPath": ""
-                }
-              ]
+              "text": "（占位）暇满难得。",
+              "audioPath": "qianxing/xiaman-nande/seg-1.mp3",
+              "videoPath": ""
             },
             {
               "id": "les-wuchang",
               "slug": "shouming-wuchang",
               "title": "寿命无常",
               "summary": "思维寿命无常。",
-              "segments": [
-                {
-                  "id": "seg-wc-1",
-                  "title": "小节1",
-                  "text": "（占位）寿命无常。",
-                  "audioPath": "qianxing/shouming-wuchang/seg-1.mp3",
-                  "videoPath": ""
-                }
-              ]
+              "text": "（占位）寿命无常。",
+              "audioPath": "qianxing/shouming-wuchang/seg-1.mp3",
+              "videoPath": ""
             },
             {
               "id": "les-guohuan",
               "slug": "lunhui-guohuan",
               "title": "轮回过患",
               "summary": "观察轮回过患。",
-              "segments": [
-                {
-                  "id": "seg-gh-1",
-                  "title": "小节1",
-                  "text": "（占位）轮回过患。可在本课下继续添加小节。",
-                  "audioPath": "qianxing/lunhui-guohuan/seg-1.mp3",
-                  "videoPath": ""
-                }
-              ]
+              "text": "（占位）轮回过患。可在运营页继续完善本课。",
+              "audioPath": "qianxing/lunhui-guohuan/seg-1.mp3",
+              "videoPath": ""
             },
             {
               "id": "les-yinguo",
               "slug": "yinguo-buxu",
               "title": "因果不虚",
               "summary": "取舍因果。",
-              "segments": [
-                {
-                  "id": "seg-yg-1",
-                  "title": "小节1",
-                  "text": "（占位）因果不虚。",
-                  "audioPath": "qianxing/yinguo-buxu/seg-1.mp3",
-                  "videoPath": ""
-                }
-              ]
+              "text": "（占位）因果不虚。",
+              "audioPath": "qianxing/yinguo-buxu/seg-1.mp3",
+              "videoPath": ""
             },
             {
               "id": "les-jietuo",
               "slug": "jietuo-liyi",
               "title": "解脱利益",
               "summary": "思维解脱利益。",
-              "segments": [
-                {
-                  "id": "seg-jt-1",
-                  "title": "小节1",
-                  "text": "（占位）解脱利益。",
-                  "audioPath": "qianxing/jietuo-liyi/seg-1.mp3",
-                  "videoPath": ""
-                }
-              ]
+              "text": "（占位）解脱利益。",
+              "audioPath": "qianxing/jietuo-liyi/seg-1.mp3",
+              "videoPath": ""
             },
             {
               "id": "les-yizhi",
               "slug": "yizhi-shangshi",
               "title": "依止上师",
               "summary": "依止上师。",
-              "segments": [
-                {
-                  "id": "seg-yz-1",
-                  "title": "小节1",
-                  "text": "（占位）依止上师。",
-                  "audioPath": "qianxing/yizhi-shangshi/seg-1.mp3",
-                  "videoPath": ""
-                }
-              ]
+              "text": "（占位）依止上师。",
+              "audioPath": "qianxing/yizhi-shangshi/seg-1.mp3",
+              "videoPath": ""
             }
           ]
         }

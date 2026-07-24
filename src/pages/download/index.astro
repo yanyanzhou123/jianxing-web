@@ -35,20 +35,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         const rows = [];
         for (const ch of mod.chapters || []) {
           for (const les of ch.lessons || []) {
-            for (const seg of les.segments || []) {
-              if (seg.audioPath)
-                rows.push({
-                  name: `${les.title} · ${seg.title || '音频'} · 音频`,
-                  type: '音频',
-                  path: seg.audioPath,
-                });
-              if (seg.videoPath)
-                rows.push({
-                  name: `${les.title} · ${seg.title || '视频'} · 视频`,
-                  type: '视频',
-                  path: seg.videoPath,
-                });
-            }
+            if (les.audioPath)
+              rows.push({ name: `${les.title} · 音频`, type: '音频', path: les.audioPath });
+            if (les.videoPath)
+              rows.push({ name: `${les.title} · 视频`, type: '视频', path: les.videoPath });
           }
         }
         if (rows.length) groups.push({ title: mod.title, rows });

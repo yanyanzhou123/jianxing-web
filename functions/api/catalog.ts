@@ -6,10 +6,65 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** 兼容旧版结构；并把模块下 references 提升为与 modules 同级 */
+/** 将旧小节/旧 texts·audios·videos 压平到课一级 */
+function flattenLesson(les: any) {
+  if (!les || typeof les !== 'object') {
+    return {
+      id: uid('les'),
+      slug: `lesson-${uid('l')}`,
+      title: '未命名课',
+      summary: '',
+      text: '',
+      audioPath: '',
+      videoPath: '',
+    };
+  }
+
+  let text = typeof les.text === 'string' ? les.text : '';
+  let audioPath = typeof les.audioPath === 'string' ? les.audioPath : '';
+  let videoPath = typeof les.videoPath === 'string' ? les.videoPath : '';
+
+  if (Array.isArray(les.segments) && les.segments.length) {
+    const segs = les.segments;
+    if (!text.trim()) {
+      text = segs
+        .map((s: any) => String(s?.text || '').trim())
+        .filter(Boolean)
+        .join('\n\n');
+    }
+    if (!audioPath.trim()) {
+      audioPath = segs.find((s: any) => String(s?.audioPath || '').trim())?.audioPath || '';
+    }
+    if (!videoPath.trim()) {
+      videoPath = segs.find((s: any) => String(s?.videoPath || '').trim())?.videoPath || '';
+    }
+  } else if (!text && !audioPath && !videoPath) {
+    const texts = les.texts || [];
+    const audios = les.audios || [];
+    const videos = les.videos || [];
+    text = texts
+      .map((t: any) => String(t?.body || t?.text || '').trim())
+      .filter(Boolean)
+      .join('\n\n');
+    audioPath = audios.find((a: any) => a?.path)?.path || '';
+    videoPath = videos.find((v: any) => v?.path)?.path || '';
+  }
+
+  return {
+    id: les.id || uid('les'),
+    slug: les.slug || `lesson-${uid('l')}`,
+    title: les.title || '未命名课',
+    summary: les.summary || '',
+    text,
+    audioPath,
+    videoPath,
+  };
+}
+
+/** 兼容旧版；v4 起课直接含文字/音视频，不再有小节 */
 function migrateCatalog(data: any) {
   if (!data || !Array.isArray(data.modules)) {
-    return { version: 3, references: [], modules: [] };
+    return { version: 4, references: [], modules: [] };
   }
 
   const references: any[] = [];
@@ -38,41 +93,22 @@ function migrateCatalog(data: any) {
   const modules = data.modules.map((mod: any) => {
     takeRefs(mod.references);
 
+    let chapters: any[];
     if (Array.isArray(mod.chapters)) {
-      return {
-        ...mod,
-        references: [],
-      };
+      chapters = mod.chapters.map((ch: any) => ({
+        id: ch.id || uid('ch'),
+        title: ch.title || '未命名章节',
+        lessons: (ch.lessons || []).map(flattenLesson),
+      }));
+    } else {
+      const sections = mod.sections || [];
+      chapters = sections.map((sec: any) => ({
+        id: sec.id || uid('ch'),
+        title: sec.label || sec.title || '未命名章节',
+        lessons: (sec.lessons || []).map(flattenLesson),
+      }));
     }
 
-    const sections = mod.sections || [];
-    const chapters = sections.map((sec: any) => ({
-      id: sec.id || uid('ch'),
-      title: sec.label || sec.title || '未命名章节',
-      lessons: (sec.lessons || []).map((les: any) => {
-        const texts = les.texts || [];
-        const audios = les.audios || [];
-        const videos = les.videos || [];
-        let segments = les.segments;
-        if (!segments) {
-          const n = Math.max(1, texts.length, audios.length, videos.length);
-          segments = Array.from({ length: n }, (_, i) => ({
-            id: uid('seg'),
-            title: texts[i]?.title || `小节${i + 1}`,
-            text: texts[i]?.body || '',
-            audioPath: audios[i]?.path || '',
-            videoPath: videos[i]?.path || '',
-          }));
-        }
-        return {
-          id: les.id || uid('les'),
-          slug: les.slug,
-          title: les.title,
-          summary: les.summary || '',
-          segments,
-        };
-      }),
-    }));
     return {
       id: mod.id || mod.slug,
       slug: mod.slug,
@@ -87,7 +123,7 @@ function migrateCatalog(data: any) {
     };
   });
 
-  return { version: 3, references, modules };
+  return { version: 4, references, modules };
 }
 
 async function loadSeed(request: Request): Promise<unknown> {

@@ -21,11 +21,10 @@ JX.lessonCount = (mod) =>
   (mod.chapters || []).reduce((n, ch) => n + (ch.lessons?.length || 0), 0);
 
 JX.formatLessonMeta = (lesson) => {
-  const segs = lesson.segments || [];
-  const texts = segs.filter((s) => s.text?.trim()).length;
-  const audios = segs.filter((s) => s.audioPath?.trim()).length;
-  const videos = segs.filter((s) => s.videoPath?.trim()).length;
-  return `小节 ${segs.length} · 文 ${texts} · 音 ${audios} · 视 ${videos}`;
+  const texts = lesson.text?.trim() ? 1 : 0;
+  const audios = lesson.audioPath?.trim() ? 1 : 0;
+  const videos = lesson.videoPath?.trim() ? 1 : 0;
+  return `文 ${texts} · 音 ${audios} · 视 ${videos}`;
 };
 
 JX.escape = (s) =>

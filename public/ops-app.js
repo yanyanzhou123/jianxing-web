@@ -11,9 +11,9 @@
   let moduleIndex = 0;
   /** @type {'module' | 'refs'} */
   let sideMode = 'module';
-  /** @type {'structure' | 'segment'} */
+  /** @type {'structure' | 'lesson'} */
   let view = 'structure';
-  /** @type {{ ci: number, li: number, si: number } | null} */
+  /** @type {{ ci: number, li: number } | null} */
   let editPath = null;
   let dirty = false;
   let saving = false;
@@ -128,7 +128,7 @@
     saving = true;
     try {
       if (!silent) showMsg(saveMsg, '保存中…', true);
-      catalog.version = 3;
+      catalog.version = 4;
       if (!Array.isArray(catalog.references)) catalog.references = [];
       await api('/api/catalog', {
         method: 'PUT',
@@ -187,10 +187,10 @@
     return catalog?.modules?.[moduleIndex] || null;
   }
 
-  function segmentStatus(seg) {
-    const hasText = !!(seg.text && String(seg.text).trim());
-    const hasAudio = !!(seg.audioPath && String(seg.audioPath).trim());
-    const hasVideo = !!(seg.videoPath && String(seg.videoPath).trim());
+  function lessonStatus(les) {
+    const hasText = !!(les.text && String(les.text).trim());
+    const hasAudio = !!(les.audioPath && String(les.audioPath).trim());
+    const hasVideo = !!(les.videoPath && String(les.videoPath).trim());
     const badges = [];
     if (hasText) badges.push('<span class="ops-badge" title="有文字">文</span>');
     if (hasAudio) badges.push('<span class="ops-badge ops-badge--audio" title="有音频">音</span>');
@@ -259,8 +259,8 @@
     }
     if (!mod.chapters) mod.chapters = [];
 
-    if (view === 'segment' && editPath) {
-      renderSegmentView(mod);
+    if (view === 'lesson' && editPath) {
+      renderLessonView(mod);
       return;
     }
     renderStructureView(mod);
@@ -467,25 +467,6 @@
       .map((ch, ci) => {
         const lessons = (ch.lessons || [])
           .map((les, li) => {
-            const segs = (les.segments || [])
-              .map((seg, si) => {
-                return `
-                  <div class="ops-tree-item ops-tree-item--seg" draggable="true" data-drag="seg" data-ci="${ci}" data-li="${li}" data-si="${si}">
-                    <span class="ops-drag" title="拖拽排序" aria-hidden="true">⋮⋮</span>
-                    <div class="ops-tree-body">
-                      <div class="ops-tree-line">
-                        <input class="ops-inline-input" data-seg-title="${ci}:${li}:${si}" value="${escapeHtml(seg.title || `小节${si + 1}`)}" />
-                        <span class="ops-badges">${segmentStatus(seg)}</span>
-                      </div>
-                      <div class="ops-tree-actions">
-                        <button type="button" class="btn ops-mini" data-act="edit-seg" data-ci="${ci}" data-li="${li}" data-si="${si}" style="color:inherit;border-color:var(--line);">编辑内容</button>
-                        <button type="button" class="btn ops-mini" data-act="del-seg" data-ci="${ci}" data-li="${li}" data-si="${si}" style="color:inherit;border-color:var(--line);">删除</button>
-                      </div>
-                    </div>
-                  </div>`;
-              })
-              .join('');
-
             return `
               <div class="ops-tree-item ops-tree-item--lesson" draggable="true" data-drag="lesson" data-ci="${ci}" data-li="${li}">
                 <span class="ops-drag" title="拖拽排序" aria-hidden="true">⋮⋮</span>
@@ -493,14 +474,12 @@
                   <div class="ops-tree-line">
                     <strong class="ops-tree-label">课 ${li + 1}</strong>
                     <input class="ops-inline-input" data-les-title="${ci}:${li}" value="${escapeHtml(les.title)}" />
+                    <span class="ops-badges">${lessonStatus(les)}</span>
                   </div>
                   <label class="ops-field ops-field--compact">摘要<input data-les-summary="${ci}:${li}" value="${escapeHtml(les.summary || '')}" /></label>
                   <div class="ops-tree-actions">
-                    <button type="button" class="btn ops-mini" data-act="add-seg" data-ci="${ci}" data-li="${li}" style="color:inherit;border-color:var(--line);">+ 小节</button>
+                    <button type="button" class="btn ops-mini" data-act="edit-lesson" data-ci="${ci}" data-li="${li}" style="color:inherit;border-color:var(--line);">编辑内容</button>
                     <button type="button" class="btn ops-mini" data-act="del-lesson" data-ci="${ci}" data-li="${li}" style="color:inherit;border-color:var(--line);">删除课</button>
-                  </div>
-                  <div class="ops-tree-children" data-drop="seg" data-ci="${ci}" data-li="${li}">
-                    ${segs || '<p class="ops-empty ops-empty--sm">暂无小节</p>'}
                   </div>
                 </div>
               </div>`;
@@ -550,14 +529,6 @@
       });
     });
 
-    box.querySelectorAll('[data-seg-title]').forEach((input) => {
-      input.addEventListener('input', () => {
-        const [ci, li, si] = input.dataset.segTitle.split(':').map(Number);
-        mod.chapters[ci].lessons[li].segments[si].title = input.value;
-        setDirty(true);
-      });
-    });
-
     box.querySelectorAll('[data-act]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -573,15 +544,9 @@
             slug,
             title,
             summary: '',
-            segments: [
-              {
-                id: uid('seg'),
-                title: '小节1',
-                text: '',
-                audioPath: `${mod.slug}/${slug}/seg-1.mp3`,
-                videoPath: '',
-              },
-            ],
+            text: '',
+            audioPath: `${mod.slug}/${slug}.mp3`,
+            videoPath: '',
           });
           setDirty(true);
           renderEditor();
@@ -601,36 +566,12 @@
             renderEditor();
           }
         }
-        if (act === 'add-seg') {
-          const li = Number(btn.dataset.li);
-          const les = mod.chapters[ci].lessons[li];
-          const n = (les.segments ||= []).length + 1;
-          les.segments.push({
-            id: uid('seg'),
-            title: `小节${n}`,
-            text: '',
-            audioPath: `${mod.slug}/${les.slug}/seg-${n}.mp3`,
-            videoPath: `${mod.slug}/${les.slug}/seg-${n}.mp4`,
-          });
-          setDirty(true);
-          renderEditor();
-        }
-        if (act === 'del-seg') {
-          const li = Number(btn.dataset.li);
-          const si = Number(btn.dataset.si);
-          if (confirm('确定删除该小节？')) {
-            mod.chapters[ci].lessons[li].segments.splice(si, 1);
-            setDirty(true);
-            renderEditor();
-          }
-        }
-        if (act === 'edit-seg') {
+        if (act === 'edit-lesson') {
           editPath = {
             ci,
             li: Number(btn.dataset.li),
-            si: Number(btn.dataset.si),
           };
-          view = 'segment';
+          view = 'lesson';
           renderEditor();
         }
       });
@@ -653,7 +594,6 @@
           type: el.dataset.drag,
           ci: Number(el.dataset.ci),
           li: el.dataset.li != null ? Number(el.dataset.li) : null,
-          si: el.dataset.si != null ? Number(el.dataset.si) : null,
         };
         el.classList.add('is-dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -697,9 +637,6 @@
     if (dragType === 'lesson') {
       return el.dataset.drag === 'lesson' || el.dataset.drop === 'lesson';
     }
-    if (dragType === 'seg') {
-      return el.dataset.drag === 'seg' || el.dataset.drop === 'seg';
-    }
     return false;
   }
 
@@ -733,64 +670,41 @@
         if (from.ci === toCi && from.li < toLi) toLi -= 1;
         mod.chapters[toCi].lessons.splice(toLi, 0, item);
       }
-      return;
-    }
-
-    if (from.type === 'seg') {
-      const item = mod.chapters[from.ci].lessons[from.li].segments.splice(from.si, 1)[0];
-      if (!item) return;
-
-      if (el.dataset.drop === 'seg') {
-        const toCi = Number(el.dataset.ci);
-        const toLi = Number(el.dataset.li);
-        mod.chapters[toCi].lessons[toLi].segments.push(item);
-        return;
-      }
-
-      if (el.dataset.drag === 'seg') {
-        let toCi = Number(el.dataset.ci);
-        let toLi = Number(el.dataset.li);
-        let toSi = Number(el.dataset.si);
-        if (from.ci === toCi && from.li === toLi && from.si < toSi) toSi -= 1;
-        mod.chapters[toCi].lessons[toLi].segments.splice(toSi, 0, item);
-      }
     }
   }
 
-  function renderSegmentView(mod) {
-    const { ci, li, si } = editPath;
+  function renderLessonView(mod) {
+    const { ci, li } = editPath;
     const ch = mod.chapters[ci];
     const les = ch?.lessons?.[li];
-    const seg = les?.segments?.[si];
-    if (!seg) {
+    if (!les) {
       view = 'structure';
       editPath = null;
       renderEditor();
       return;
     }
 
-    const audioUrl = assetUrl(seg.audioPath);
-    const videoUrl = assetUrl(seg.videoPath);
-    const hasAudio = !!(seg.audioPath && String(seg.audioPath).trim());
-    const hasVideo = !!(seg.videoPath && String(seg.videoPath).trim());
+    const audioUrl = assetUrl(les.audioPath);
+    const videoUrl = assetUrl(les.videoPath);
+    const hasAudio = !!(les.audioPath && String(les.audioPath).trim());
+    const hasVideo = !!(les.videoPath && String(les.videoPath).trim());
 
     editor.innerHTML = `
       <div class="ops-seg-page">
         <div class="ops-row" style="margin-top:0;">
           <button type="button" class="btn ops-mini" id="back-structure" style="color:inherit;border-color:var(--line);">← 返回结构</button>
-          <p class="ops-crumb">${escapeHtml(ch.title)} / ${escapeHtml(les.title)} / 小节内容</p>
+          <p class="ops-crumb">${escapeHtml(ch.title)} / ${escapeHtml(les.title)}</p>
         </div>
 
-        <p class="ops-label">小节设置</p>
-        <label class="ops-field">小节标题<input id="seg-title" value="${escapeHtml(seg.title || '')}" /></label>
-        <label class="ops-field">文字<textarea id="seg-text">${escapeHtml(seg.text || '')}</textarea></label>
+        <p class="ops-label">课程内容</p>
+        <label class="ops-field">文字<textarea id="les-text">${escapeHtml(les.text || '')}</textarea></label>
 
         <div class="ops-media-block" id="audio-block">
           <div class="ops-media-head">
             <p class="ops-label" style="margin:0;">音频</p>
             ${hasAudio ? '<span class="ops-status is-ok">已上传</span>' : '<span class="ops-status">未上传</span>'}
           </div>
-          <label class="ops-field">存储路径<input id="seg-audio-path" value="${escapeHtml(seg.audioPath || '')}" /></label>
+          <label class="ops-field">存储路径<input id="les-audio-path" value="${escapeHtml(les.audioPath || '')}" /></label>
           ${
             hasAudio && audioUrl
               ? `<div class="ops-preview"><audio controls preload="metadata" src="${escapeHtml(audioUrl)}"></audio>
@@ -813,7 +727,7 @@
             <p class="ops-label" style="margin:0;">视频</p>
             ${hasVideo ? '<span class="ops-status is-ok">已上传</span>' : '<span class="ops-status">未上传</span>'}
           </div>
-          <label class="ops-field">存储路径<input id="seg-video-path" value="${escapeHtml(seg.videoPath || '')}" /></label>
+          <label class="ops-field">存储路径<input id="les-video-path" value="${escapeHtml(les.videoPath || '')}" /></label>
           ${
             hasVideo && videoUrl
               ? `<div class="ops-preview"><video controls preload="metadata" src="${escapeHtml(videoUrl)}"></video>
@@ -839,25 +753,21 @@
       renderEditor();
     });
 
-    $('seg-title')?.addEventListener('input', (e) => {
-      seg.title = e.target.value;
+    $('les-text')?.addEventListener('input', (e) => {
+      les.text = e.target.value;
       setDirty(true);
     });
-    $('seg-text')?.addEventListener('input', (e) => {
-      seg.text = e.target.value;
+    $('les-audio-path')?.addEventListener('input', (e) => {
+      les.audioPath = e.target.value;
       setDirty(true);
     });
-    $('seg-audio-path')?.addEventListener('input', (e) => {
-      seg.audioPath = e.target.value;
-      setDirty(true);
-    });
-    $('seg-video-path')?.addEventListener('input', (e) => {
-      seg.videoPath = e.target.value;
+    $('les-video-path')?.addEventListener('input', (e) => {
+      les.videoPath = e.target.value;
       setDirty(true);
     });
 
-    bindUpload('audio', mod, les, seg);
-    bindUpload('video', mod, les, seg);
+    bindUpload('audio', mod, les);
+    bindUpload('video', mod, les);
   }
 
   function setUploadUi(kind, { pct, text, ok, error }) {
@@ -880,7 +790,7 @@
     }
   }
 
-  function bindUpload(kind, mod, les, seg) {
+  function bindUpload(kind, mod, les) {
     const input = $(`upload-${kind}`);
     if (!input) return;
     input.addEventListener('change', async () => {
@@ -892,10 +802,8 @@
         : kind === 'audio'
           ? 'mp3'
           : 'mp4';
-      const key =
-        seg[field] ||
-        `${mod.slug}/${les.slug}/seg-${editPath.si + 1}.${ext}`;
-      seg[field] = key;
+      const key = les[field] || `${mod.slug}/${les.slug}.${ext}`;
+      les[field] = key;
 
       try {
         setUploadUi(kind, {
@@ -917,7 +825,7 @@
         });
         showMsg(saveMsg, '上传完成，正在自动保存目录…', true);
         await saveCatalog({ reason: `上传成功并已自动保存：${key}` });
-        // refresh preview while staying on segment page
+        // refresh preview while staying on lesson page
         renderEditor();
         setUploadUi(kind, {
           pct: null,

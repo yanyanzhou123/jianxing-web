@@ -9,9 +9,10 @@
   --dawn-mid: #e7eeea;
   --dawn-bottom: #f7f9f8;
   --line: rgba(26, 33, 30, 0.12);
-  --font-brand: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
-  --font-serif: 'Noto Serif SC', 'Songti SC', serif;
-  --font-sans: 'Noto Sans SC', 'PingFang SC', sans-serif;
+  /* 系统字体优先：国内 Google Fonts 常失败，避免单字回退导致「回」等字形不一致 */
+  --font-brand: 'ZCOOL XiaoWei', 'Songti SC', 'STSong', 'SimSun', serif;
+  --font-serif: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif SC', serif;
+  --font-sans: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --max: 72rem;
   --content: 42rem;
 }
@@ -186,8 +187,14 @@ img {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* 必须回到 none：残留 translateY(0) 会破坏子元素 position:sticky */
+    transform: none;
   }
+}
+
+/* 学习页禁用位移动画，确保目录/音频条吸顶稳定 */
+.learn-page.page-hero {
+  animation: none;
 }
 
 .hero__brand {
@@ -402,9 +409,10 @@ img {
 }
 
 .page-hero h1 {
-  font-family: var(--font-brand);
+  /* 站酷小薇字形不全（如「回」会成黑块），标题用思源宋体 */
+  font-family: var(--font-serif);
   font-size: clamp(2rem, 4vw, 2.8rem);
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0.1em;
   margin: 0 0 0.75rem;
 }
@@ -413,6 +421,12 @@ img {
   margin: 0;
   color: var(--ink-soft);
   max-width: 38rem;
+}
+
+.learn-page.page-hero > .learn-shell > p,
+.learn-page .learn-prose,
+.learn-page .learn-prose p {
+  max-width: none;
 }
 
 .prose {
@@ -429,7 +443,7 @@ img {
 
 /* Learn page: tabbed video / audio / text */
 .learn-page .learn-shell {
-  width: min(100% - 2rem, 52rem);
+  width: min(100% - 2.5rem, 84rem);
   margin-inline: auto;
 }
 
@@ -510,10 +524,14 @@ img {
 
 .learn-card {
   min-height: 16rem;
-  padding: 1.25rem 1.35rem 1.6rem;
+  padding: 1.25rem 1.75rem 1.75rem;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.72);
   border-radius: 0.85rem;
+}
+
+.learn-panel[hidden] {
+  display: none !important;
 }
 
 .learn-media-item + .learn-media-item {
@@ -556,32 +574,145 @@ img {
   color: var(--ink);
 }
 
+.learn-read {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.learn-read.has-toc {
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  gap: 1rem 1.25rem;
+}
+
+.learn-read__main {
+  min-width: 0;
+}
+
+.learn-toc {
+  position: sticky;
+  top: 4.75rem;
+  align-self: start;
+  z-index: 6;
+  width: 100%;
+  max-height: calc(100vh - 5.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.75rem 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  /* 不透明，避免正文透出来像被盖住 */
+  background: #f3f6f4;
+  box-shadow: 0 8px 20px rgba(26, 33, 30, 0.06);
+}
+
+.learn-toc__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.learn-toc__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-soft);
+}
+
+.learn-toc__close {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+}
+
+.learn-toc__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.learn-toc__link {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0.35rem 0.4rem;
+  border-radius: 0.4rem;
+}
+
+.learn-toc__link:hover {
+  background: rgba(47, 93, 78, 0.1);
+  color: var(--jade-deep);
+}
+
+.learn-toc-fab,
+.learn-toc-mask {
+  display: none;
+}
+
 .learn-prose {
   font-size: 1.08rem;
-  line-height: 2;
+  line-height: 2.1;
+  letter-spacing: 0.06em;
   color: var(--ink-soft);
-  max-width: 40rem;
 }
 
 .learn-prose p {
-  margin: 0 0 1.25rem;
+  /* 段与段之间约等于空一行，比行距更疏 */
+  margin: 0 0 2.2em;
   text-indent: 2em;
+  max-width: none;
 }
 
 .learn-prose p:first-child {
   text-indent: 2em;
 }
 
+.learn-prose p + p {
+  margin-top: 0.15em;
+}
+
+.learn-heading {
+  margin: 2.4em 0 1.35em;
+  font-family: var(--font-serif);
+  /* 用 em 相对正文，A+/A- 放大后标题仍比正文大 */
+  font-size: 1.32em;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  text-indent: 0;
+  /* 预留顶栏 + 吸顶音频条高度，避免目录跳转时标题被压住 */
+  scroll-margin-top: 12.5rem;
+}
+
+.learn-heading:first-child {
+  margin-top: 0.35rem;
+}
+
 .learn-listen-dock {
   position: sticky;
   top: 3.9rem;
   z-index: 5;
-  margin: -0.25rem 0 1.25rem;
+  margin: 0 0 1.25rem;
   padding: 0.85rem 0.9rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 0.65rem;
-  background: rgba(243, 246, 244, 0.94);
-  backdrop-filter: blur(8px);
+  background: #f3f6f4;
   box-shadow: 0 8px 24px rgba(26, 33, 30, 0.06);
 }
 
@@ -636,6 +767,50 @@ img {
   min-width: 0;
 }
 
+.learn-text-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.learn-font-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  font-family: var(--font-sans);
+}
+
+.learn-font-btn {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.learn-font-btn:hover:not(:disabled) {
+  background: rgba(47, 93, 78, 0.08);
+  color: var(--jade-deep);
+}
+
+.learn-font-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.learn-font-label {
+  min-width: 1.75rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
 @media (max-width: 720px) {
   .learn-stage {
     grid-template-columns: 1fr;
@@ -675,6 +850,81 @@ img {
 
   .learn-listen-dock {
     top: 3.5rem;
+  }
+
+  .learn-dock__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .learn-font-controls {
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+
+  .learn-read.has-toc {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-toc {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(18rem, 82vw);
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+    border: 0;
+    border-right: 1px solid var(--line);
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+    overflow: auto;
+    background: #f3f6f4;
+    box-shadow: 8px 0 28px rgba(26, 33, 30, 0.12);
+  }
+
+  .learn-toc.is-open {
+    transform: translateX(0);
+  }
+
+  .learn-toc__close {
+    display: inline-flex;
+  }
+
+  .learn-toc-fab {
+    display: inline-flex;
+    position: fixed;
+    right: 1rem;
+    bottom: 1.25rem;
+    z-index: 30;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    color: #f4f7f5;
+    background: rgba(47, 93, 78, 0.94);
+    box-shadow: 0 10px 24px rgba(26, 33, 30, 0.18);
+    cursor: pointer;
+  }
+
+  .learn-toc-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgba(26, 33, 30, 0.35);
+  }
+
+  .learn-toc-mask[hidden] {
+    display: none !important;
+  }
+
+  .learn-heading {
+    scroll-margin-top: 11rem;
   }
 }
 

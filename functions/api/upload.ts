@@ -1,4 +1,5 @@
 import { type Env, isAllowedKey, json, requireAuth } from '../_lib/auth';
+import { MEDIA_CACHE_CONTROL, contentTypeForKey } from '../_lib/media';
 
 /** 小文件整包上传（仍受 Worker 约 100MB 限制） */
 const MAX_SIMPLE = 90 * 1024 * 1024;
@@ -37,9 +38,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }, 413);
   }
 
-  const contentType = file.type || 'application/octet-stream';
+  const contentType = contentTypeForKey(keyRaw, file.type || 'application/octet-stream');
   await env.FILES.put(keyRaw, file.stream(), {
-    httpMetadata: { contentType },
+    httpMetadata: {
+      contentType,
+      cacheControl: MEDIA_CACHE_CONTROL,
+    },
     customMetadata: {
       uploadedAt: new Date().toISOString(),
       originalName: file.name,

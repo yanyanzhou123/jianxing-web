@@ -14,10 +14,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p style="font-family:var(--font-sans);color:var(--ink-soft);">加载中…</p>
     </div>
   </section>
-</BaseLayout>
 
-<script src="/jx-catalog.js" defer></script>
-<script is:inline>
+  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const body = document.getElementById('dl-body');
     try {
@@ -66,4 +65,5 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       body.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
     }
   });
-</script>
+  </script>
+</BaseLayout>

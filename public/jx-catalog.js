@@ -1,3 +1,4 @@
+/* jx-catalog v20260725d — parseArticle + 甲一、/丙二、 科判目录 */
 window.JX = window.JX || {};
 
 JX.r2Base = () =>
@@ -34,13 +35,63 @@ JX.escape = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-JX.formatText = (text) =>
-  JX.escape(text)
+/**
+ * 科判标题：甲一、… / 丙二、略说： / 乙一：…
+ * 天干 + 中文数字 + （顿号或冒号）+ 标题。
+ * 不认：全论分三：一、…；以及「甲一（…）分二：一、…」概述句。
+ */
+JX.HEADING_RE = /^[甲乙丙丁戊己庚辛壬癸][一二三四五六七八九十百]+[、：:].+$/;
+
+JX.inlineFormat = (escaped) =>
+  escaped
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .split(/\n\n+/)
-    .map((p) => `<p>${p.replace(/\n/g, '<br />')}</p>`)
-    .join('');
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+JX.isOutlineHeading = (line) => {
+  const s = String(line || '').trim();
+  if (!JX.HEADING_RE.test(s)) return false;
+  // 「甲一（礼赞…）分二：一、…；二、…」这类总述不算目录标题
+  if (/分[一二三四五六七八九十]+[：:]/.test(s)) return false;
+  if (/[；;]/.test(s)) return false;
+  if (/（/.test(s) && /）/.test(s) && /分/.test(s)) return false;
+  return true;
+};
+
+/**
+ * 解析课文：按行识别科判标题；每一非空行自成一段（段间空一行）。
+ * @returns {{ html: string, toc: { id: string, title: string }[] }}
+ */
+JX.parseArticle = (text) => {
+  const toc = [];
+  const raw = String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
+  if (!raw) return { html: '', toc };
+
+  const lines = raw.split('\n');
+  let headingIdx = 0;
+  const parts = [];
+
+  for (const lineRaw of lines) {
+    const line = lineRaw.trim();
+    if (!line) continue;
+
+    if (JX.isOutlineHeading(line)) {
+      const id = `sec-${headingIdx++}`;
+      toc.push({ id, title: line });
+      parts.push(
+        `<h2 class="learn-heading" id="${id}">${JX.inlineFormat(JX.escape(line))}</h2>`,
+      );
+    } else {
+      parts.push(`<p>${JX.inlineFormat(JX.escape(line))}</p>`);
+    }
+  }
+
+  return { html: parts.join(''), toc };
+};
+
+JX.formatText = (text) => JX.parseArticle(text).html;
 
 JX.findLesson = (catalog, moduleSlug, lessonSlug) => {
   const mod = catalog.modules.find((m) => m.slug === moduleSlug);

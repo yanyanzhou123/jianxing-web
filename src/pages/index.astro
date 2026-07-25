@@ -41,10 +41,9 @@ import { modules } from '../data/content';
       </ul>
     </div>
   </section>
-</BaseLayout>
 
-<script src="/jx-catalog.js" defer></script>
-<script is:inline>
+  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     try {
       const catalog = await JX.fetchCatalog();
@@ -67,4 +66,5 @@ import { modules } from '../data/content';
         .join('');
     } catch (_) {}
   });
-</script>
+  </script>
+</BaseLayout>

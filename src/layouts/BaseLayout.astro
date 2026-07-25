@@ -23,12 +23,23 @@ const path = Astro.url.pathname;
     <meta name="r2-base" content={R2_BASE} />
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {R2_BASE && <link rel="preconnect" href={R2_BASE} crossorigin />}
+    {R2_BASE && <link rel="dns-prefetch" href={R2_BASE} />}
+    <!-- 国内访问 Google Fonts 常被拦截；异步加载，避免卡住整站 CSS -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&family=ZCOOL+XiaoWei&display=swap"
       rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&family=ZCOOL+XiaoWei&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&family=ZCOOL+XiaoWei&display=swap"
+      />
+    </noscript>
     <title>{fullTitle}</title>
   </head>
   <body>

@@ -23,10 +23,9 @@ const seed = getModule(moduleSlug);
       <nav class="lesson-nav" aria-label="上下课" id="lesson-nav"></nav>
     </div>
   </article>
-</BaseLayout>
 
-<script src="/jx-catalog.js" defer></script>
-<script is:inline define:vars={{ moduleSlug }}>
+  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script is:inline define:vars={{ moduleSlug }}>
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
@@ -37,6 +36,13 @@ const seed = getModule(moduleSlug);
     }
 
     try {
+      for (let i = 0; i < 50 && typeof JX?.parseArticle !== 'function'; i++) {
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      if (typeof JX?.parseArticle !== 'function') {
+        throw new Error('页面脚本未更新，请强制刷新（Ctrl+F5）后再试');
+      }
+
       const catalog = await JX.fetchCatalog();
       const found = JX.findLesson(catalog, moduleSlug, id);
       if (!found) {
@@ -55,15 +61,18 @@ const seed = getModule(moduleSlug);
       const hasAudio = !!(lesson.audioPath && String(lesson.audioPath).trim());
       const hasText = !!(lesson.text && String(lesson.text).trim());
 
+      const FONT_KEY = 'jx-learn-font-size';
+      const FONT_SIZES = [15, 17, 19, 21, 23, 26];
+      let fontSize = Number(localStorage.getItem(FONT_KEY)) || 19;
+      if (!FONT_SIZES.includes(fontSize)) fontSize = 19;
+
       const allowed = [];
       if (hasVideo) allowed.push('video');
       allowed.push('text');
       if (hasAudio) allowed.push('audio');
 
       let tab = params.get('tab') || '';
-      if (!allowed.includes(tab)) {
-        tab = allowed.includes('text') ? 'text' : allowed[0];
-      }
+      if (!allowed.includes(tab)) tab = 'text';
 
       const stage = document.getElementById('lesson-stage');
 
@@ -72,6 +81,37 @@ const seed = getModule(moduleSlug);
         qs.set('id', id);
         qs.set('tab', next);
         history.replaceState(null, '', `${location.pathname}?${qs.toString()}`);
+      }
+
+      function applyFontSize() {
+        const prose = stage.querySelector('.learn-prose');
+        if (prose) prose.style.fontSize = `${fontSize}px`;
+        const label = stage.querySelector('#font-size-label');
+        if (label) label.textContent = String(fontSize);
+        const smaller = stage.querySelector('#font-smaller');
+        const larger = stage.querySelector('#font-larger');
+        if (smaller) smaller.disabled = fontSize <= FONT_SIZES[0];
+        if (larger) larger.disabled = fontSize >= FONT_SIZES[FONT_SIZES.length - 1];
+      }
+
+      function changeFontSize(delta) {
+        const idx = FONT_SIZES.indexOf(fontSize);
+        const nextIdx = Math.min(
+          FONT_SIZES.length - 1,
+          Math.max(0, (idx < 0 ? 2 : idx) + delta),
+        );
+        fontSize = FONT_SIZES[nextIdx];
+        localStorage.setItem(FONT_KEY, String(fontSize));
+        applyFontSize();
+      }
+
+      function fontControlsHtml() {
+        return `
+          <div class="learn-font-controls" role="group" aria-label="字体大小">
+            <button type="button" class="learn-font-btn" id="font-smaller" aria-label="减小字体">A-</button>
+            <span class="learn-font-label" id="font-size-label">${fontSize}</span>
+            <button type="button" class="learn-font-btn" id="font-larger" aria-label="增大字体">A+</button>
+          </div>`;
       }
 
       function mediaEmpty(kind, path) {
@@ -85,98 +125,227 @@ const seed = getModule(moduleSlug);
         return null;
       }
 
-      function renderPanel(current) {
-        let body = '';
-        if (current === 'video') {
+      function panelBody(kind) {
+        if (kind === 'video') {
           const err = mediaEmpty('video', lesson.videoPath);
-          body = err
-            ? err
-            : `<div class="learn-video"><video controls preload="metadata" src="${JX.assetUrl(lesson.videoPath)}"></video></div>`;
-        } else if (current === 'audio') {
+          if (err) return err;
+          const url = JX.assetUrl(lesson.videoPath);
+          return `<div class="learn-video"><video controls playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" preload="none">
+              <source src="${url}" type="video/mp4" />
+            </video></div>`;
+        }
+        if (kind === 'audio') {
           const err = mediaEmpty('audio', lesson.audioPath);
-          body = err
-            ? err
-            : `<div class="audio-box learn-audio"><audio controls preload="none" src="${JX.assetUrl(lesson.audioPath)}"></audio></div>`;
-        } else {
-          const textBody = hasText
-            ? `<div class="prose learn-prose">${JX.formatText(lesson.text)}</div>`
-            : '<p class="audio-box__empty">暂无文字，请在运营后台编辑本课。</p>';
+          if (err) return err;
+          return `<div class="audio-box learn-audio"><audio controls preload="none" src="${JX.assetUrl(lesson.audioPath)}"></audio></div>`;
+        }
 
+        if (!hasText) {
+          const empty = '<p class="audio-box__empty">暂无文字，请在运营后台编辑本课。</p>';
           if (hasAudio) {
             const url = JX.assetUrl(lesson.audioPath);
-            body = `
+            return `
               <div class="learn-listen-dock">
                 <div class="learn-dock__row">
                   <span class="learn-dock__label">音频</span>
                   <div class="learn-dock__player">
                     ${
                       url
-                        ? `<audio controls preload="metadata" src="${url}"></audio>`
+                        ? `<audio controls preload="none" src="${url}"></audio>`
                         : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
                     }
                   </div>
+                  ${fontControlsHtml()}
                 </div>
                 <p class="learn-dock__hint">可一边听音频，一边向下阅读文字</p>
               </div>
-              <div class="learn-text-flow">${textBody}</div>`;
-          } else {
-            body = textBody;
+              ${empty}`;
           }
+          return `<div class="learn-text-toolbar">${fontControlsHtml()}</div>${empty}`;
         }
 
-        const tabMeta = {
-          video: { icon: '视', label: '视频' },
-          text: { icon: '文', label: hasAudio ? '听读' : '文字' },
-          audio: { icon: '音', label: '音频' },
-        };
-
-        const tabsHtml = allowed
-          .map((key) => {
-            const on = current === key;
-            const meta = tabMeta[key];
-            return `
-              <button type="button"
-                class="learn-tab${on ? ' is-active' : ''}"
-                data-tab="${key}"
-                aria-pressed="${on ? 'true' : 'false'}">
-                <span class="learn-tab__icon" aria-hidden="true">${meta.icon}</span>
-                <span class="learn-tab__label">${meta.label}</span>
-              </button>`;
-          })
-          .join('');
-
-        const showRail = allowed.length > 1;
-        stage.innerHTML = showRail
+        const article = JX.parseArticle(lesson.text);
+        const showToc = article.toc.length >= 2;
+        const tocNav = showToc
           ? `
-          <div class="learn-stage">
-            <aside class="learn-rail" aria-label="内容形式">
-              <p class="learn-rail__title">浏览</p>
-              ${tabsHtml}
-            </aside>
-            <div class="learn-card" data-tab="${current}">${body}</div>
-          </div>`
-          : `
-          <div class="learn-stage learn-stage--solo">
-            <div class="learn-card" data-tab="${current}">${body}</div>
+            <nav class="learn-toc" id="learn-toc" aria-label="本文目录">
+              <div class="learn-toc__head">
+                <p class="learn-toc__title">目录</p>
+                <button type="button" class="learn-toc__close" id="toc-close" aria-label="关闭目录">×</button>
+              </div>
+              <ol class="learn-toc__list">
+                ${article.toc
+                  .map(
+                    (item) =>
+                      `<li><a class="learn-toc__link" href="#${item.id}">${JX.escape(item.title)}</a></li>`,
+                  )
+                  .join('')}
+              </ol>
+            </nav>
+            <button type="button" class="learn-toc-fab" id="toc-fab" aria-expanded="false">目录</button>
+            <div class="learn-toc-mask" id="toc-mask" hidden></div>`
+          : '';
+
+        let mainInner = '';
+        if (hasAudio) {
+          const url = JX.assetUrl(lesson.audioPath);
+          mainInner = `
+            <div class="learn-listen-dock">
+              <div class="learn-dock__row">
+                <span class="learn-dock__label">音频</span>
+                <div class="learn-dock__player">
+                  ${
+                    url
+                      ? `<audio controls preload="none" src="${url}"></audio>`
+                      : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
+                  }
+                </div>
+                ${fontControlsHtml()}
+              </div>
+              <p class="learn-dock__hint">可一边听音频，一边向下阅读文字</p>
+            </div>
+            <div class="learn-text-flow">
+              <div class="prose learn-prose">${article.html}</div>
+            </div>`;
+        } else {
+          mainInner = `
+            <div class="learn-text-toolbar">${fontControlsHtml()}</div>
+            <div class="learn-text-flow">
+              <div class="prose learn-prose">${article.html}</div>
+            </div>`;
+        }
+
+        // 目录与正文分栏：音频条只在右侧，避免盖住左侧目录
+        return `
+          <div class="learn-read${showToc ? ' has-toc' : ''}">
+            ${tocNav}
+            <div class="learn-read__main">${mainInner}</div>
           </div>`;
+      }
+
+      const tabMeta = {
+        video: { icon: '视', label: '视频' },
+        text: { icon: '文', label: hasAudio ? '听读' : '文字' },
+        audio: { icon: '音', label: '音频' },
+      };
+
+      let activeTab = tab;
+      const showRail = allowed.length > 1;
+      const tabsHtml = allowed
+        .map((key) => {
+          const meta = tabMeta[key];
+          return `
+            <button type="button"
+              class="learn-tab"
+              data-tab="${key}"
+              aria-pressed="false">
+              <span class="learn-tab__icon" aria-hidden="true">${meta.icon}</span>
+              <span class="learn-tab__label">${meta.label}</span>
+            </button>`;
+        })
+        .join('');
+      const panelsHtml = allowed
+        .map((key) => `<div class="learn-panel" data-panel="${key}" hidden></div>`)
+        .join('');
+
+      stage.innerHTML = showRail
+        ? `
+        <div class="learn-stage">
+          <aside class="learn-rail" aria-label="内容形式">
+            <p class="learn-rail__title">浏览</p>
+            ${tabsHtml}
+          </aside>
+          <div class="learn-card">${panelsHtml}</div>
+        </div>`
+        : `
+        <div class="learn-stage learn-stage--solo">
+          <div class="learn-card">${panelsHtml}</div>
+        </div>`;
+
+      function pauseHiddenMedia(except) {
+        stage.querySelectorAll('video, audio').forEach((el) => {
+          const panel = el.closest('[data-panel]');
+          if (panel && panel.getAttribute('data-panel') === except) return;
+          try {
+            el.pause();
+          } catch {}
+        });
+      }
+
+      function showPanel(current) {
+        activeTab = current;
+        setTabInUrl(current);
+        stage.querySelector('.learn-card')?.setAttribute('data-tab', current);
 
         stage.querySelectorAll('.learn-tab').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const next = btn.getAttribute('data-tab');
-            if (!next || next === current) return;
-            stage.querySelectorAll('video, audio').forEach((el) => {
-              try {
-                el.pause();
-              } catch {}
-            });
-            setTabInUrl(next);
-            renderPanel(next);
+          const on = btn.getAttribute('data-tab') === current;
+          btn.classList.toggle('is-active', on);
+          btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+
+        allowed.forEach((key) => {
+          const panel = stage.querySelector(`[data-panel="${key}"]`);
+          if (!panel) return;
+          if (!panel.dataset.ready) {
+            panel.innerHTML = panelBody(key);
+            panel.dataset.ready = '1';
+            if (key === 'text') {
+              panel.querySelector('#font-smaller')?.addEventListener('click', () => changeFontSize(-1));
+              panel.querySelector('#font-larger')?.addEventListener('click', () => changeFontSize(1));
+              bindTextToc(panel);
+            }
+          }
+          panel.hidden = key !== current;
+        });
+
+        pauseHiddenMedia(current);
+        if (current === 'text') applyFontSize();
+      }
+
+      function bindTextToc(panel) {
+        const toc = panel.querySelector('#learn-toc');
+        const fab = panel.querySelector('#toc-fab');
+        const mask = panel.querySelector('#toc-mask');
+        const closeBtn = panel.querySelector('#toc-close');
+        if (!toc) return;
+
+        const setOpen = (open) => {
+          toc.classList.toggle('is-open', open);
+          if (mask) mask.hidden = !open;
+          if (fab) fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+          document.body.classList.toggle('learn-toc-open', open);
+        };
+
+        fab?.addEventListener('click', () => setOpen(!toc.classList.contains('is-open')));
+        closeBtn?.addEventListener('click', () => setOpen(false));
+        mask?.addEventListener('click', () => setOpen(false));
+
+        toc.querySelectorAll('.learn-toc__link').forEach((link) => {
+          link.addEventListener('click', (e) => {
+            const id = link.getAttribute('href')?.slice(1);
+            const target = id ? panel.querySelector(`#${CSS.escape(id)}`) : null;
+            if (!target) return;
+            e.preventDefault();
+            setOpen(false);
+            const headerH = document.querySelector('.site-header')?.offsetHeight || 0;
+            const dockH = panel.querySelector('.learn-listen-dock')?.offsetHeight || 0;
+            const gap = 12;
+            const top =
+              target.getBoundingClientRect().top + window.scrollY - headerH - dockH - gap;
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
           });
         });
       }
 
-      renderPanel(tab);
-      setTabInUrl(tab);
+      stage.querySelectorAll('.learn-tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const next = btn.getAttribute('data-tab');
+          if (!next || next === activeTab) return;
+          showPanel(next);
+        });
+      });
+
+      showPanel(tab);
 
       const idx = lessonsFlat.findIndex((l) => l.slug === lesson.slug);
       const prev = idx > 0 ? lessonsFlat[idx - 1] : null;
@@ -196,4 +365,5 @@ const seed = getModule(moduleSlug);
       root.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
     }
   });
-</script>
+  </script>
+</BaseLayout>

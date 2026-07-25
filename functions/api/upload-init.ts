@@ -1,4 +1,5 @@
 import { type Env, isAllowedKey, json, requireAuth } from '../_lib/auth';
+import { MEDIA_CACHE_CONTROL, contentTypeForKey } from '../_lib/media';
 
 /** 初始化分片上传（大视频用） */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -16,9 +17,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const key = String(body.key || '').trim().replace(/^\/+/, '');
   if (!isAllowedKey(key)) return json({ error: '路径不合法' }, 400);
 
-  const contentType = body.contentType || 'application/octet-stream';
+  const contentType = contentTypeForKey(key, body.contentType || 'application/octet-stream');
   const mpu = await context.env.FILES.createMultipartUpload(key, {
-    httpMetadata: { contentType },
+    httpMetadata: {
+      contentType,
+      cacheControl: MEDIA_CACHE_CONTROL,
+    },
   });
 
   return json({

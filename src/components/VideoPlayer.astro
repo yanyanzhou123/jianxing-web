@@ -19,7 +19,15 @@ const { items } = Astro.props;
           <div class="video-box">
             <p class="audio-box__label">视频 · {item.title}</p>
             {src ? (
-              <video controls preload="metadata" src={src}>
+              <video
+                controls
+                playsinline
+                webkit-playsinline
+                x5-playsinline
+                x5-video-player-type="h5"
+                preload="metadata"
+                src={src}
+              >
                 您的浏览器不支持视频播放。
               </video>
             ) : (

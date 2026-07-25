@@ -1,0 +1,14 @@
+/jx-catalog.js
+  Cache-Control: public, max-age=120, must-revalidate
+
+/ops-app.js
+  Cache-Control: public, max-age=120, must-revalidate
+
+/ops-video-compress.js
+  Cache-Control: public, max-age=120, must-revalidate
+
+/ops-app.css
+  Cache-Control: public, max-age=120, must-revalidate
+
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable

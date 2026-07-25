@@ -68,6 +68,16 @@
   const MULTIPART_THRESHOLD = 20 * 1024 * 1024;
   const PART_SIZE = 8 * 1024 * 1024;
 
+  function mimeForUpload(key, file) {
+    const name = String(key || file?.name || '').toLowerCase();
+    if (name.endsWith('.mp4') || name.endsWith('.m4v')) return 'video/mp4';
+    if (name.endsWith('.webm')) return 'video/webm';
+    if (name.endsWith('.mp3')) return 'audio/mpeg';
+    if (name.endsWith('.m4a')) return 'audio/mp4';
+    if (name.endsWith('.pdf')) return 'application/pdf';
+    return file?.type || 'application/octet-stream';
+  }
+
   async function uploadFile(key, file, onProgress) {
     if (file.size <= MULTIPART_THRESHOLD) {
       const fd = new FormData();
@@ -84,7 +94,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         key,
-        contentType: file.type || 'application/octet-stream',
+        contentType: mimeForUpload(key, file),
       }),
     });
 
@@ -730,13 +740,25 @@
           <label class="ops-field">存储路径<input id="les-video-path" value="${escapeHtml(les.videoPath || '')}" /></label>
           ${
             hasVideo && videoUrl
-              ? `<div class="ops-preview"><video controls preload="metadata" src="${escapeHtml(videoUrl)}"></video>
+              ? `<div class="ops-preview"><video controls playsinline webkit-playsinline x5-playsinline preload="metadata" src="${escapeHtml(videoUrl)}"></video>
                    <a class="ops-preview-link" href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener">打开链接</a></div>`
               : hasVideo
                 ? `<p class="ops-empty ops-empty--sm">已有路径，但未配置 PUBLIC_R2_BASE，无法预览。</p>`
                 : `<p class="ops-empty ops-empty--sm">尚未上传视频。</p>`
           }
           <div class="ops-upload-panel">
+            <label class="ops-check">
+              <input type="checkbox" id="video-compress" />
+              <span>上传前转 AAC 音轨（浏览器处理，大文件仍可能较慢）</span>
+            </label>
+            <label class="ops-check">
+              <input type="checkbox" id="video-compress-deep" />
+              <span>同时压画面到 720p（很慢，200MB 可能要几十分钟）</span>
+            </label>
+            <p class="ops-hint">
+              建议：用小程序或电脑软件先转成 <strong>H.264 + AAC</strong> 再上传（更快、苹果微信才有声音）。
+              上面两项为网页备用，默认不勾选；勾选后首次还需下载约 25MB 组件，大视频请耐心等待或改用软件处理。
+            </p>
             <input type="file" accept="video/*,.mp4" id="upload-video" />
             <div class="ops-upload-status" id="video-upload-status" hidden></div>
             <div class="ops-progress" id="video-progress" hidden>
@@ -794,18 +816,47 @@
     const input = $(`upload-${kind}`);
     if (!input) return;
     input.addEventListener('change', async () => {
-      const file = input.files?.[0];
+      let file = input.files?.[0];
       if (!file) return;
       const field = kind === 'audio' ? 'audioPath' : 'videoPath';
-      const ext = file.name.includes('.')
-        ? file.name.split('.').pop()
-        : kind === 'audio'
-          ? 'mp3'
-          : 'mp4';
+      const wantCompress = kind === 'video' && $('video-compress')?.checked;
+      const ext =
+        kind === 'video'
+          ? 'mp4'
+          : file.name.includes('.')
+            ? file.name.split('.').pop()
+            : 'mp3';
       const key = les[field] || `${mod.slug}/${les.slug}.${ext}`;
       les[field] = key;
 
       try {
+        if (wantCompress) {
+          if (typeof window.JXCompressVideo !== 'function') {
+            throw new Error('压缩组件尚未加载完成，请稍候再试，或取消勾选后直接上传。');
+          }
+          setUploadUi(kind, { pct: 0, text: '准备压缩…' });
+          showMsg(saveMsg, '正在压缩视频（方便手机观看）…', true);
+          const deep = !!$('video-compress-deep')?.checked;
+          if (deep && file.size > 80 * 1024 * 1024) {
+            const ok = confirm(
+              `该视频约 ${(file.size / 1024 / 1024).toFixed(0)}MB。浏览器深度压缩会非常慢（可能几十分钟）。\n\n确定继续？\n选“取消”将改为只转 AAC 音轨（快很多）。`,
+            );
+            if (!ok) {
+              const deepBox = $('video-compress-deep');
+              if (deepBox) deepBox.checked = false;
+            }
+          }
+          file = await window.JXCompressVideo(file, {
+            deep: !!$('video-compress-deep')?.checked,
+            onStatus: (text) => setUploadUi(kind, { pct: null, text }),
+            onProgress: (pct) =>
+              setUploadUi(kind, {
+                pct,
+                text: `处理中… ${pct}%（请勿关闭页面）`,
+              }),
+          });
+        }
+
         setUploadUi(kind, {
           pct: 0,
           text: `准备上传：${file.name}（${(file.size / 1024 / 1024).toFixed(1)} MB）`,
@@ -825,7 +876,6 @@
         });
         showMsg(saveMsg, '上传完成，正在自动保存目录…', true);
         await saveCatalog({ reason: `上传成功并已自动保存：${key}` });
-        // refresh preview while staying on lesson page
         renderEditor();
         setUploadUi(kind, {
           pct: null,
@@ -833,12 +883,15 @@
           ok: true,
         });
       } catch (e) {
+        const msg = String(e.message || e);
         setUploadUi(kind, {
           pct: null,
-          text: String(e.message || e),
+          text: wantCompress
+            ? `压缩失败：${msg}。可取消勾选「自动压缩」后直接上传原文件。`
+            : msg,
           error: true,
         });
-        showMsg(saveMsg, String(e.message || e), false);
+        showMsg(saveMsg, msg, false);
       } finally {
         input.value = '';
       }

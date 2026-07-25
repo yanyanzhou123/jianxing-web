@@ -17,10 +17,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </ul>
     </div>
   </section>
-</BaseLayout>
 
-<script src="/jx-catalog.js" defer></script>
-<script is:inline>
+  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const ul = document.getElementById('xuexiu-modules');
     try {
@@ -45,4 +44,5 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       ul.innerHTML = `<li><p>加载失败：${JX.escape(e.message || e)}</p></li>`;
     }
   });
-</script>
+  </script>
+</BaseLayout>

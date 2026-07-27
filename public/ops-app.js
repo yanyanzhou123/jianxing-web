@@ -17,6 +17,8 @@
   let editPath = null;
   let dirty = false;
   let saving = false;
+  /** 展开中的章节 id（默认全部折叠） */
+  const expandedChapterIds = new Set();
 
   function uid(prefix) {
     return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -34,6 +36,60 @@
       return fallback || `lesson-${uid('l')}`;
     }
     return base.slice(0, 48) || fallback || `lesson-${uid('l')}`;
+  }
+
+  /** 模块网址标识：仅小写字母、数字、连字符 */
+  function normalizeModSlug(raw, fallback) {
+    let s = String(raw || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48);
+    if (!s || !/^[a-z][a-z0-9-]*$/.test(s)) return fallback || `mod-${uid('m')}`;
+    return s;
+  }
+
+  function uniqueModSlug(slug, exceptIndex) {
+    let base = slug;
+    let n = 2;
+    let next = slug;
+    while (catalog.modules.some((m, i) => i !== exceptIndex && m.slug === next)) {
+      next = `${base}-${n++}`;
+    }
+    return next;
+  }
+
+  function statusLabelFor(status) {
+    return status === 'open' ? '开放中' : '即将开放';
+  }
+
+  function addModule() {
+    const n = (catalog.modules?.length || 0) + 1;
+    const title = `新模块 ${n}`;
+    // 网址标识自动生成，运营无需填写；一旦生成不随标题改动，以免音视频路径错乱
+    const slug = uniqueModSlug(`mod-${uid('m')}`, -1);
+    catalog.modules.push({
+      id: slug,
+      slug,
+      title,
+      shortTitle: title,
+      summary: '',
+      status: 'coming',
+      statusLabel: statusLabelFor('coming'),
+      intro: '',
+      references: [],
+      chapters: [],
+    });
+    moduleIndex = catalog.modules.length - 1;
+    sideMode = 'module';
+    view = 'structure';
+    editPath = null;
+    setDirty(true);
+    renderModuleList();
+    renderEditor();
   }
 
   function assetUrl(path) {
@@ -61,7 +117,13 @@
   async function api(url, options = {}) {
     const res = await fetch(url, { credentials: 'same-origin', ...options });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `请求失败 ${res.status}`);
+    if (!res.ok) {
+      const err = new Error(data.error || `请求失败 ${res.status}`);
+      err.code = data.code;
+      err.data = data;
+      err.status = res.status;
+      throw err;
+    }
     return data;
   }
 
@@ -133,22 +195,52 @@
   }
 
   async function saveCatalog(opts = {}) {
-    const { silent = false, reason = '' } = opts;
+    const { silent = false, reason = '', force = false } = opts;
     if (saving) return;
     saving = true;
     try {
       if (!silent) showMsg(saveMsg, '保存中…', true);
       catalog.version = 4;
       if (!Array.isArray(catalog.references)) catalog.references = [];
-      await api('/api/catalog', {
+      const payload = {
+        ...catalog,
+        version: 4,
+        baseRev: catalog.rev ?? 0,
+        force: !!force,
+      };
+      const result = await api('/api/catalog', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(catalog),
+        body: JSON.stringify(payload),
       });
+      if (result?.rev != null) catalog.rev = result.rev;
       setDirty(false);
-      const msg = reason || '已保存。前台刷新即可看到变化。';
+      const backupHint = result?.backedUp ? '（已自动备份上一版）' : '';
+      const msg = (reason || '已保存。前台刷新即可看到变化。') + backupHint;
       showMsg(saveMsg, msg, true);
     } catch (e) {
+      if (e.code === 'CONFLICT') {
+        showMsg(saveMsg, e.message || '目录冲突', false);
+        if (
+          confirm(
+            `${e.message || '目录已被他人更新。'}\n\n是否重新加载服务器目录？\n（当前未保存的本地修改将丢失）`,
+          )
+        ) {
+          await loadCatalog();
+        }
+        throw e;
+      }
+      if (e.code === 'NEED_CONFIRM' && !force) {
+        const ok = confirm(
+          `${e.message || '课次明显减少。'}\n\n确定仍要覆盖保存吗？\n（保存前服务器会自动备份上一版）`,
+        );
+        if (ok) {
+          saving = false;
+          return saveCatalog({ ...opts, force: true });
+        }
+        showMsg(saveMsg, '已取消保存', false);
+        return;
+      }
       showMsg(saveMsg, e.message || String(e), false);
       throw e;
     } finally {
@@ -172,8 +264,9 @@
     catalog = await api('/api/catalog');
     if (!catalog.modules) catalog.modules = [];
     if (!Array.isArray(catalog.references)) catalog.references = [];
+    if (catalog.rev == null) catalog.rev = 0;
     // 兼容：把仍挂在模块下的参考资料提到顶层（与接口 migrate 一致的前端兜底）
-    for (const mod of catalog.modules) {
+    catalog.modules.forEach((mod, i) => {
       if (mod.references?.length) {
         for (const r of mod.references) {
           const path = String(r.path || '');
@@ -184,7 +277,15 @@
         }
         mod.references = [];
       }
-    }
+      // 缺省标识时自动补全（不覆盖已有 slug）
+      if (!mod.slug || !/^[a-z][a-z0-9-]{0,47}$/.test(String(mod.slug))) {
+        mod.slug = uniqueModSlug(normalizeModSlug(mod.id, `mod-${uid('m')}`), i);
+        if (!mod.id) mod.id = mod.slug;
+        setDirty(true);
+      }
+      mod.statusLabel = statusLabelFor(mod.status);
+      if (!mod.shortTitle) mod.shortTitle = mod.title || '';
+    });
     view = 'structure';
     editPath = null;
     sideMode = 'module';
@@ -264,7 +365,8 @@
 
     const mod = currentModule();
     if (!mod) {
-      editor.innerHTML = '<p class="ops-empty">请选择左侧模块</p>';
+      editor.innerHTML =
+        '<p class="ops-empty">暂无模块。请点击左侧「+ 添加模块」，或从已有模块进入编辑。</p>';
       return;
     }
     if (!mod.chapters) mod.chapters = [];
@@ -412,44 +514,85 @@
 
   function renderStructureView(mod) {
     editor.innerHTML = `
-      <p class="ops-label">模块设置</p>
+      <div class="ops-row">
+        <p class="ops-label" style="margin:0;flex:1;">模块设置</p>
+        <span class="ops-move-btns">
+          <button type="button" class="btn ops-mini ops-move" id="mod-move-up" title="模块上移" ${moduleIndex === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn ops-mini ops-move" id="mod-move-down" title="模块下移" ${moduleIndex >= catalog.modules.length - 1 ? 'disabled' : ''}>↓</button>
+        </span>
+        <button type="button" class="btn ops-mini" id="del-module" style="color:inherit;border-color:var(--line);">删除模块</button>
+      </div>
       <label class="ops-field">标题<input data-mod="title" value="${escapeHtml(mod.title)}" /></label>
-      <label class="ops-field">简称<input data-mod="shortTitle" value="${escapeHtml(mod.shortTitle || '')}" /></label>
+      <p class="ops-hint">系统标识：${escapeHtml(mod.slug || '')}（自动生成）</p>
       <label class="ops-field">状态
         <select data-mod="status">
-          <option value="open" ${mod.status === 'open' ? 'selected' : ''}>开放</option>
+          <option value="open" ${mod.status === 'open' ? 'selected' : ''}>开放中</option>
           <option value="coming" ${mod.status === 'coming' ? 'selected' : ''}>即将开放</option>
         </select>
       </label>
-      <label class="ops-field">状态文案<input data-mod="statusLabel" value="${escapeHtml(mod.statusLabel || '')}" /></label>
-      <label class="ops-field">简介<textarea data-mod="intro">${escapeHtml(mod.intro || '')}</textarea></label>
-      <label class="ops-field">摘要<input data-mod="summary" value="${escapeHtml(mod.summary || '')}" /></label>
+      <label class="ops-field">摘要<textarea data-mod="summary" rows="3">${escapeHtml(mod.summary || '')}</textarea></label>
 
       <div class="ops-row">
-        <p class="ops-label" style="margin:0;flex:1;">课程结构（拖拽左侧把手排序）</p>
+        <p class="ops-label" style="margin:0;flex:1;">课程结构（按住左侧 ⋮⋮ 拖动排序）</p>
         <button type="button" class="btn ops-mini" style="color:inherit;border-color:var(--line);" id="add-chapter">+ 添加章节</button>
       </div>
       <div id="chapters-box" class="ops-tree"></div>
     `;
+
+    $('mod-move-up')?.addEventListener('click', () => {
+      if (moduleIndex <= 0) return;
+      moveInArray(catalog.modules, moduleIndex, moduleIndex - 1);
+      moduleIndex -= 1;
+      setDirty(true);
+      renderModuleList();
+      renderEditor();
+    });
+    $('mod-move-down')?.addEventListener('click', () => {
+      if (moduleIndex >= catalog.modules.length - 1) return;
+      moveInArray(catalog.modules, moduleIndex, moduleIndex + 1);
+      moduleIndex += 1;
+      setDirty(true);
+      renderModuleList();
+      renderEditor();
+    });
+    $('del-module')?.addEventListener('click', () => {
+      if (!confirm(`确定删除模块「${mod.title}」及其全部章节与课？此操作保存后才会生效到服务器。`)) return;
+      catalog.modules.splice(moduleIndex, 1);
+      moduleIndex = Math.max(0, moduleIndex - 1);
+      view = 'structure';
+      editPath = null;
+      setDirty(true);
+      renderModuleList();
+      renderEditor();
+    });
 
     editor.querySelectorAll('[data-mod]').forEach((input) => {
       const onChange = () => {
         const key = input.getAttribute('data-mod');
         mod[key] = input.value;
         if (key === 'status') {
-          mod.statusLabel = input.value === 'open' ? '开放中' : '即将开放';
+          mod.statusLabel = statusLabelFor(input.value);
         }
+        // 简称/简介不再单独配置，与标题、摘要保持一致即可
+        if (key === 'title') mod.shortTitle = input.value;
+        if (key === 'summary') mod.intro = input.value;
         setDirty(true);
         if (key === 'title' || key === 'status') renderModuleList();
       };
       input.addEventListener('change', onChange);
       input.addEventListener('input', () => {
         const key = input.getAttribute('data-mod');
-        if (key !== 'status') mod[key] = input.value;
+        if (key === 'status') return;
+        mod[key] = input.value;
+        if (key === 'title') mod.shortTitle = input.value;
+        if (key === 'summary') mod.intro = input.value;
         setDirty(true);
         if (key === 'title') renderModuleList();
       });
     });
+
+    // 打开编辑时校正状态文案
+    mod.statusLabel = statusLabelFor(mod.status);
 
     $('add-chapter')?.addEventListener('click', () => {
       mod.chapters.push({
@@ -475,11 +618,15 @@
 
     box.innerHTML = mod.chapters
       .map((ch, ci) => {
-        const lessons = (ch.lessons || [])
-          .map((les, li) => {
-            return `
-              <div class="ops-tree-item ops-tree-item--lesson" draggable="true" data-drag="lesson" data-ci="${ci}" data-li="${li}">
-                <span class="ops-drag" title="拖拽排序" aria-hidden="true">⋮⋮</span>
+        if (!ch.id) ch.id = uid('ch');
+        const lessonCount = (ch.lessons || []).length;
+        const expanded = expandedChapterIds.has(ch.id);
+        const lessons = expanded
+          ? (ch.lessons || [])
+              .map((les, li) => {
+                return `
+              <div class="ops-tree-item ops-tree-item--lesson" data-drag="lesson" data-ci="${ci}" data-li="${li}">
+                <span class="ops-drag" role="button" tabindex="0" title="按住拖动排序" aria-label="拖动排序课次">⋮⋮</span>
                 <div class="ops-tree-body">
                   <div class="ops-tree-line">
                     <strong class="ops-tree-label">课 ${li + 1}</strong>
@@ -488,29 +635,42 @@
                   </div>
                   <label class="ops-field ops-field--compact">摘要<input data-les-summary="${ci}:${li}" value="${escapeHtml(les.summary || '')}" /></label>
                   <div class="ops-tree-actions">
+                    <button type="button" class="btn ops-mini ops-move-text" data-act="move-lesson" data-dir="-1" data-ci="${ci}" data-li="${li}" ${li === 0 ? 'disabled' : ''}>上移</button>
+                    <button type="button" class="btn ops-mini ops-move-text" data-act="move-lesson" data-dir="1" data-ci="${ci}" data-li="${li}" ${li >= (ch.lessons || []).length - 1 ? 'disabled' : ''}>下移</button>
                     <button type="button" class="btn ops-mini" data-act="edit-lesson" data-ci="${ci}" data-li="${li}" style="color:inherit;border-color:var(--line);">编辑内容</button>
                     <button type="button" class="btn ops-mini" data-act="del-lesson" data-ci="${ci}" data-li="${li}" style="color:inherit;border-color:var(--line);">删除课</button>
                   </div>
                 </div>
               </div>`;
-          })
-          .join('');
+              })
+              .join('')
+          : '';
 
         return `
-          <div class="ops-tree-item ops-tree-item--chapter" draggable="true" data-drag="chapter" data-ci="${ci}">
-            <span class="ops-drag" title="拖拽排序" aria-hidden="true">⋮⋮</span>
+          <div class="ops-tree-item ops-tree-item--chapter ${expanded ? 'is-expanded' : 'is-collapsed'}" data-drag="chapter" data-ci="${ci}" data-ch-id="${escapeHtml(ch.id)}">
+            <span class="ops-drag" role="button" tabindex="0" title="按住拖动排序" aria-label="拖动排序章节">⋮⋮</span>
             <div class="ops-tree-body">
-              <div class="ops-tree-line">
-                <strong class="ops-tree-label">章节 ${ci + 1}</strong>
-                <input class="ops-inline-input" data-ch-title="${ci}" value="${escapeHtml(ch.title)}" />
+              <div class="ops-chapter-head">
+                <div class="ops-chapter-head__main">
+                  <strong class="ops-tree-label">章节 ${ci + 1}</strong>
+                  <input class="ops-inline-input" data-ch-title="${ci}" value="${escapeHtml(ch.title)}" />
+                  <span class="ops-chapter-count">${lessonCount} 课</span>
+                </div>
+                <button type="button" class="btn ops-mini" data-act="toggle-chapter" data-ci="${ci}" style="color:inherit;border-color:var(--line);">${expanded ? '收起课次' : '展开课次'}</button>
               </div>
-              <div class="ops-tree-actions">
-                <button type="button" class="btn ops-mini" data-act="add-lesson" data-ci="${ci}" style="color:inherit;border-color:var(--line);">+ 添加课</button>
+              <div class="ops-tree-actions ops-chapter-actions">
+                <button type="button" class="btn ops-mini ops-move-text" data-act="move-chapter" data-dir="-1" data-ci="${ci}" ${ci === 0 ? 'disabled' : ''}>上移</button>
+                <button type="button" class="btn ops-mini ops-move-text" data-act="move-chapter" data-dir="1" data-ci="${ci}" ${ci >= mod.chapters.length - 1 ? 'disabled' : ''}>下移</button>
+                ${expanded ? `<button type="button" class="btn ops-mini" data-act="add-lesson" data-ci="${ci}" style="color:inherit;border-color:var(--line);">+ 添加课</button>` : ''}
                 <button type="button" class="btn ops-mini" data-act="del-chapter" data-ci="${ci}" style="color:inherit;border-color:var(--line);">删除章节</button>
               </div>
-              <div class="ops-tree-children" data-drop="lesson" data-ci="${ci}">
+              ${
+                expanded
+                  ? `<div class="ops-tree-children" data-drop="lesson" data-ci="${ci}">
                 ${lessons || '<p class="ops-empty ops-empty--sm">暂无课程，请添加。</p>'}
-              </div>
+              </div>`
+                  : ''
+              }
             </div>
           </div>`;
       })
@@ -545,11 +705,21 @@
         const ci = Number(btn.dataset.ci);
         const act = btn.dataset.act;
 
+        if (act === 'toggle-chapter') {
+          const ch = mod.chapters[ci];
+          if (!ch?.id) return;
+          if (expandedChapterIds.has(ch.id)) expandedChapterIds.delete(ch.id);
+          else expandedChapterIds.add(ch.id);
+          renderChapterTree(mod);
+          return;
+        }
         if (act === 'add-lesson') {
-          const n = (mod.chapters[ci].lessons ||= []).length + 1;
+          const ch = mod.chapters[ci];
+          if (ch?.id) expandedChapterIds.add(ch.id);
+          const n = (ch.lessons ||= []).length + 1;
           const title = `第${n}课`;
           const slug = autoSlug(title, `lesson-${uid('l')}`);
-          mod.chapters[ci].lessons.push({
+          ch.lessons.push({
             id: uid('les'),
             slug,
             title,
@@ -563,6 +733,8 @@
         }
         if (act === 'del-chapter') {
           if (confirm('确定删除该章节及其下所有课？')) {
+            const ch = mod.chapters[ci];
+            if (ch?.id) expandedChapterIds.delete(ch.id);
             mod.chapters.splice(ci, 1);
             setDirty(true);
             renderEditor();
@@ -584,6 +756,24 @@
           view = 'lesson';
           renderEditor();
         }
+        if (act === 'move-chapter') {
+          const dir = Number(btn.dataset.dir);
+          const to = ci + dir;
+          if (to < 0 || to >= mod.chapters.length) return;
+          moveInArray(mod.chapters, ci, to);
+          setDirty(true);
+          renderEditor();
+        }
+        if (act === 'move-lesson') {
+          const li = Number(btn.dataset.li);
+          const dir = Number(btn.dataset.dir);
+          const list = mod.chapters[ci].lessons || [];
+          const to = li + dir;
+          if (to < 0 || to >= list.length) return;
+          moveInArray(list, li, to);
+          setDirty(true);
+          renderEditor();
+        }
       });
     });
 
@@ -592,11 +782,34 @@
 
   function bindDragAndDrop(mod, root) {
     let dragging = null;
+    /** @type {'before' | 'after' | 'end'} */
+    let dropPos = 'before';
+
+    const clearDropMarks = () => {
+      root.querySelectorAll('.is-drop-target, .is-drop-before, .is-drop-after').forEach((n) => {
+        n.classList.remove('is-drop-target', 'is-drop-before', 'is-drop-after');
+      });
+    };
 
     root.querySelectorAll('[data-drag]').forEach((el) => {
+      const handle = el.querySelector(':scope > .ops-drag');
+      if (!handle) return;
+
+      // 默认不可拖：避免点输入框/按钮时误触；仅按住把手时启用
+      el.removeAttribute('draggable');
+
+      const enableDrag = () => el.setAttribute('draggable', 'true');
+      const disableDrag = () => el.removeAttribute('draggable');
+
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.button != null && e.button !== 0) return;
+        enableDrag();
+      });
+      handle.addEventListener('pointerup', disableDrag);
+      handle.addEventListener('pointercancel', disableDrag);
+
       el.addEventListener('dragstart', (e) => {
-        // Only drag from the handle, so editing titles won't start a drag
-        if (!e.target.closest('.ops-drag')) {
+        if (el.getAttribute('draggable') !== 'true') {
           e.preventDefault();
           return;
         }
@@ -605,14 +818,21 @@
           ci: Number(el.dataset.ci),
           li: el.dataset.li != null ? Number(el.dataset.li) : null,
         };
+        dropPos = 'before';
         el.classList.add('is-dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', dragging.type);
+        // 透明拖影旁加一点偏移，避免挡住落点线
+        try {
+          e.dataTransfer.setDragImage(el, 24, 16);
+        } catch (_) {}
         e.stopPropagation();
       });
+
       el.addEventListener('dragend', () => {
+        disableDrag();
         el.classList.remove('is-dragging');
-        root.querySelectorAll('.is-drop-target').forEach((n) => n.classList.remove('is-drop-target'));
+        clearDropMarks();
         dragging = null;
       });
     });
@@ -624,17 +844,35 @@
         e.preventDefault();
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'move';
-        el.classList.add('is-drop-target');
+
+        clearDropMarks();
+        if (el.dataset.drop === 'lesson') {
+          dropPos = 'end';
+          el.classList.add('is-drop-target');
+        } else {
+          const rect = el.getBoundingClientRect();
+          dropPos = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+          el.classList.add('is-drop-target');
+          el.classList.add(dropPos === 'before' ? 'is-drop-before' : 'is-drop-after');
+        }
       });
-      el.addEventListener('dragleave', () => el.classList.remove('is-drop-target'));
+
+      el.addEventListener('dragleave', (e) => {
+        // 进入子元素时也会 leave，只有真正离开节点才清
+        if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+        el.classList.remove('is-drop-target', 'is-drop-before', 'is-drop-after');
+      });
+
       el.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        el.classList.remove('is-drop-target');
         if (!dragging) return;
         if (!isValidDropTarget(dragging, el)) return;
-        applyReorder(mod, dragging, el);
+        const from = dragging;
+        const pos = dropPos;
         dragging = null;
+        clearDropMarks();
+        applyReorder(mod, from, el, pos);
         setDirty(true);
         renderEditor();
       });
@@ -651,34 +889,40 @@
   }
 
   function moveInArray(arr, fromIndex, toIndex) {
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || toIndex > arr.length) return;
     const [item] = arr.splice(fromIndex, 1);
     arr.splice(toIndex, 0, item);
   }
 
-  function applyReorder(mod, from, el) {
+  function applyReorder(mod, from, el, pos = 'before') {
     if (from.type === 'chapter' && el.dataset.drag === 'chapter') {
-      const toCi = Number(el.dataset.ci);
+      let toCi = Number(el.dataset.ci);
+      if (pos === 'after') toCi += 1;
+      // 先移除，再按新下标插入
+      if (from.ci < toCi) toCi -= 1;
       moveInArray(mod.chapters, from.ci, toCi);
       return;
     }
 
     if (from.type === 'lesson') {
-      const item = mod.chapters[from.ci].lessons.splice(from.li, 1)[0];
+      const srcList = mod.chapters[from.ci]?.lessons;
+      if (!srcList) return;
+      const [item] = srcList.splice(from.li, 1);
       if (!item) return;
 
       if (el.dataset.drop === 'lesson') {
         const toCi = Number(el.dataset.ci);
-        mod.chapters[toCi].lessons.push(item);
+        (mod.chapters[toCi].lessons ||= []).push(item);
         return;
       }
 
       if (el.dataset.drag === 'lesson') {
         let toCi = Number(el.dataset.ci);
         let toLi = Number(el.dataset.li);
-        // After removal, adjust index when moving within same chapter downward
+        if (pos === 'after') toLi += 1;
+        // 同一章节内、从前往后拖时，源下标已 splice，目标需左移
         if (from.ci === toCi && from.li < toLi) toLi -= 1;
-        mod.chapters[toCi].lessons.splice(toLi, 0, item);
+        (mod.chapters[toCi].lessons ||= []).splice(toLi, 0, item);
       }
     }
   }
@@ -926,6 +1170,14 @@
 
   $('btn-save')?.addEventListener('click', () => {
     saveCatalog().catch(() => {});
+  });
+
+  $('btn-add-module')?.addEventListener('click', () => {
+    if (!catalog) {
+      showMsg(saveMsg, '请先登录并加载目录', false);
+      return;
+    }
+    addModule();
   });
 
   window.addEventListener('beforeunload', (e) => {

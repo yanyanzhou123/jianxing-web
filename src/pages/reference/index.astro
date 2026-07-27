@@ -15,7 +15,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script src="/jx-catalog.js?v=20260726c" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const body = document.getElementById('ref-body');
@@ -29,15 +29,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const items = refs
         .map((ref) => {
           const url = JX.assetUrl(ref.path);
+          const id = ref.id ? ` id="${JX.escape(ref.id)}"` : '';
           return `
-            <li>
+            <li${id}>
               <a href="${url || '#'}" ${url ? 'target="_blank" rel="noopener"' : ''}>
                 <span class="lesson-list__num">PDF</span>
                 <div>
                   <h2 class="lesson-list__title">《${JX.escape(ref.title)}》</h2>
                   ${ref.meta ? `<p class="lesson-list__meta">${JX.escape(ref.meta)}</p>` : ''}
                   <p class="lesson-list__summary">${
-                    url ? '点击打开或下载' : `待上传：${JX.escape(ref.path)}`
+                    url ? '点击打开或下载' : '尚未上传文件，请在运营后台上传'
                   }</p>
                 </div>
               </a>
@@ -45,6 +46,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         })
         .join('');
       body.innerHTML = `<ul class="lesson-list">${items}</ul>`;
+      const hash = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+      if (hash) {
+        document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     } catch (e) {
       body.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
     }

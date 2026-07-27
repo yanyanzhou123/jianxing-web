@@ -1,7 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { site } from '../data/site';
-import { modules } from '../data/content';
 ---
 
 <BaseLayout>
@@ -10,61 +9,28 @@ import { modules } from '../data/content';
     <div class="hero__content">
       <p class="hero__brand">{site.name}</p>
       <h1 class="hero__title">闻思修，见行合一</h1>
-      <p class="hero__lead">
-        汇集《轮回中的我》《大圆满前行-讲解》《见行佛光》《不离-讲解》四大学修模块。
-      </p>
+      <p class="hero__lead">依教次第闻思，在日常中落实见与行。</p>
       <a class="btn" href="/xuexiu/">进入学修</a>
     </div>
   </section>
 
   <section class="section">
-    <div class="wrap">
-      <div class="section__head">
-        <h2>四大模块</h2>
-        <p>模块架构可在运营后台配置：章节 → 课（文字/音频/视频）。</p>
-      </div>
-      <ul class="module-list" id="home-modules">
-        {
-          modules.map((mod, index) => (
-            <li class:list={[{ 'is-open': mod.status === 'open' }]}>
-              <a href={mod.href || `/${mod.slug}/`}>
-                <span class="module-list__num">{String(index + 1).padStart(2, '0')}</span>
-                <div>
-                  <p class="module-list__meta">{mod.statusLabel}</p>
-                  <h3 class="module-list__title">《{mod.title}》</h3>
-                  <p class="module-list__summary">{mod.summary}</p>
-                </div>
-              </a>
-            </li>
-          ))
-        }
-      </ul>
+    <div class="wrap" id="home-sections">
+      <p class="lesson-list__summary">加载中…</p>
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script src="/jx-catalog.js?v=20260726i" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
+    const root = document.getElementById('home-sections');
     try {
       const catalog = await JX.fetchCatalog();
-      const ul = document.getElementById('home-modules');
-      ul.innerHTML = catalog.modules
-        .map((mod, index) => {
-          const count = JX.lessonCount(mod);
-          return `
-            <li class="${mod.status === 'open' ? 'is-open' : ''}">
-              <a href="/${mod.slug}/">
-                <span class="module-list__num">${String(index + 1).padStart(2, '0')}</span>
-                <div>
-                  <p class="module-list__meta">${JX.escape(mod.statusLabel || '')}${count ? ` · ${count} 课` : ''}</p>
-                  <h3 class="module-list__title">《${JX.escape(mod.title)}》</h3>
-                  <p class="module-list__summary">${JX.escape(mod.summary || '')}</p>
-                </div>
-              </a>
-            </li>`;
-        })
-        .join('');
-    } catch (_) {}
+      root.innerHTML = JX.renderHomeSections(catalog, { mode: 'stairs' });
+    } catch (e) {
+      console.error('home sections load failed', e);
+      root.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;
+    }
   });
   </script>
 </BaseLayout>

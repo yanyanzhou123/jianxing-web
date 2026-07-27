@@ -99,13 +99,14 @@ export function json(data: unknown, status = 200, headers?: HeadersInit): Respon
 export function isAllowedKey(key: string): boolean {
   if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
   if (!/^[a-zA-Z0-9._/-]+$/.test(key)) return false;
-  return (
+  if (
     key.startsWith('books/') ||
     key.startsWith('audio/') ||
     key.startsWith('config/') ||
-    key.startsWith('lunhui/') ||
-    key.startsWith('qianxing/') ||
-    key.startsWith('foguang/') ||
-    key.startsWith('buli/')
-  );
+    key.startsWith('media/')
+  ) {
+    return true;
+  }
+  // 模块媒体：{slug}/...（slug 为小写字母开头的短标识，支持后台新增模块）
+  return /^[a-z][a-z0-9-]{0,47}\//.test(key);
 }

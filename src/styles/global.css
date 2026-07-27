@@ -145,9 +145,9 @@ img {
 
 .hero {
   position: relative;
-  min-height: min(92vh, 52rem);
+  min-height: min(58vh, 32rem);
   display: grid;
-  align-items: end;
+  align-items: center;
   overflow: hidden;
   isolation: isolate;
 }
@@ -157,8 +157,8 @@ img {
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(180deg, rgba(26, 33, 30, 0.18) 0%, rgba(26, 33, 30, 0.45) 55%, rgba(26, 33, 30, 0.72) 100%),
-    radial-gradient(ellipse 80% 50% at 50% 20%, rgba(223, 232, 227, 0.35), transparent 70%),
+    linear-gradient(180deg, rgba(26, 33, 30, 0.22) 0%, rgba(26, 33, 30, 0.42) 45%, rgba(26, 33, 30, 0.78) 100%),
+    radial-gradient(ellipse 90% 55% at 50% 28%, rgba(223, 232, 227, 0.28), transparent 68%),
     url('/hero-mist.svg') center/cover no-repeat,
     linear-gradient(160deg, #6f8a7f 0%, #2b4038 48%, #1a211e 100%);
   animation: mist-drift 18s ease-in-out infinite alternate;
@@ -174,9 +174,11 @@ img {
 }
 
 .hero__content {
-  width: min(100% - 2rem, 40rem);
-  margin: 0 auto 12vh;
+  width: min(100% - 2rem, 36rem);
+  margin: 0 auto;
+  padding: 3rem 0.25rem 3.25rem;
   color: #f4f7f5;
+  text-align: center;
   animation: rise 0.9s ease both;
 }
 
@@ -199,10 +201,553 @@ img {
 
 .hero__brand {
   font-family: var(--font-brand);
-  font-size: clamp(2.4rem, 7vw, 4.4rem);
-  letter-spacing: 0.16em;
-  margin: 0 0 0.6rem;
-  line-height: 1.15;
+  font-size: clamp(2.5rem, 7vw, 4.2rem);
+  letter-spacing: 0.18em;
+  margin: 0 0 0.85rem;
+  line-height: 1.12;
+}
+
+.hero__content .btn {
+  margin-top: 0.35rem;
+}
+
+/* 首页：横向竖长台阶块（整行与下方横线同宽） */
+.path-stairs {
+  list-style: none;
+  margin: 0;
+  padding: 0.65rem 0 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.path-stairs__item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 0;
+  min-width: 5.6rem;
+  max-width: 8.5rem;
+  scroll-snap-align: start;
+  animation: path-stair-in 0.4s ease both;
+}
+
+.path-stairs--sections .path-stairs__item {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+}
+
+.path-stairs__item:nth-child(1) { animation-delay: 0.02s; }
+.path-stairs__item:nth-child(2) { animation-delay: 0.07s; }
+.path-stairs__item:nth-child(3) { animation-delay: 0.12s; }
+.path-stairs__item:nth-child(4) { animation-delay: 0.17s; }
+.path-stairs__item:nth-child(5) { animation-delay: 0.22s; }
+.path-stairs__item:nth-child(6) { animation-delay: 0.27s; }
+.path-stairs__item:nth-child(7) { animation-delay: 0.32s; }
+
+@keyframes path-stair-in {
+  from {
+    opacity: 0;
+    transform: translateX(0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.path-stairs__link,
+.path-stairs__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.95rem;
+  width: 100%;
+  min-height: 26rem;
+  padding: 1.15rem 0.55rem 1.2rem;
+  text-decoration: none;
+  color: inherit;
+  text-align: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(228, 237, 232, 0.96) 100%);
+  border: 1px solid rgba(47, 93, 78, 0.22);
+  border-radius: 0.85rem 0.85rem 0.35rem 0.35rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 0 rgba(47, 93, 78, 0.06),
+    0 12px 0 -4px rgba(47, 93, 78, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.path-stairs__card {
+  align-items: stretch;
+  gap: 0.9rem;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 100%;
+  align-self: stretch;
+  padding: 1rem 0.85rem 1.2rem;
+  text-align: left;
+}
+
+.path-stairs--sections {
+  align-items: stretch;
+  min-height: 26rem;
+}
+
+.path-stairs--sections .path-stairs__card {
+  min-height: 26rem;
+}
+
+.path-stairs__link:hover {
+  transform: translateY(-4px);
+  border-color: rgba(47, 93, 78, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 14px 22px rgba(30, 61, 52, 0.12);
+}
+
+.path-stairs__card:hover {
+  border-color: rgba(47, 93, 78, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 14px 22px rgba(30, 61, 52, 0.12);
+}
+
+.path-stairs__sec {
+  display: block;
+  flex: 0 0 auto;
+  align-self: stretch;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  line-height: 1.35;
+  color: #f4f8f6;
+  background: linear-gradient(180deg, #3d6f5e 0%, var(--jade-deep) 100%);
+  padding: 0.5rem 0.4rem;
+  border-radius: 0.3rem;
+}
+
+.path-stairs__item.is-soon .path-stairs__sec {
+  background: linear-gradient(180deg, #8a948e 0%, #6a736e 100%);
+}
+
+.path-stairs__groups,
+.path-stairs__mods {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  align-content: start;
+}
+
+.path-stairs__groups {
+  gap: 1rem;
+}
+
+.path-stairs--sections .path-stairs__mods {
+  gap: 0.2rem;
+  padding-top: 0.15rem;
+}
+
+.path-stairs__group-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--jade-deep);
+  margin: 0 0 0.45rem;
+  padding: 0.1rem 0.2rem 0.4rem;
+  border-bottom: 1px solid rgba(47, 93, 78, 0.2);
+  line-height: 1.4;
+}
+
+.path-stairs__group .path-stairs__mods {
+  padding-left: 0.1rem;
+}
+
+.path-stairs__mod a {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.55;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0.38rem 0.35rem;
+  border-radius: 0.25rem;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.path-stairs__mod a:hover {
+  color: var(--jade-deep);
+  background: rgba(47, 93, 78, 0.08);
+}
+
+.path-stairs__mod.is-soon a {
+  color: var(--ink-soft);
+}
+
+.path-stairs__num {
+  display: none;
+}
+
+/* 大号竖排「第 N 阶」——和最初次第台阶同一视觉 */
+.path-stairs__card > .path-stairs__title {
+  flex: 0 0 auto;
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  line-height: 1.55;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  height: 8.5rem;
+  max-height: none;
+  margin: 0.35rem auto 0.15rem;
+  overflow: visible;
+  color: var(--jade-deep);
+}
+
+.path-stairs__title {
+  flex: 1 1 auto;
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.45;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  height: 17.5rem;
+  max-height: none;
+  margin-inline: auto;
+  overflow: visible;
+}
+
+.path-stairs__meta {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--jade);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  max-width: 100%;
+  padding-inline: 0.1rem;
+}
+
+.path-stairs__arrow {
+  flex: 0 0 1.6rem;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: 0 0.15rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(47, 93, 78, 0.12);
+  transform: none;
+  opacity: 1;
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--jade-deep);
+}
+
+.path-stairs__item.is-soon .path-stairs__link,
+.path-stairs__item.is-soon .path-stairs__card {
+  background: rgba(255, 255, 255, 0.42);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.path-stairs__item.is-soon .path-stairs__meta,
+.path-stairs__item.is-soon .path-stairs__title {
+  color: var(--ink-soft);
+}
+
+.path-stairs__item.is-soon .path-stairs__arrow {
+  color: rgba(106, 115, 110, 0.75);
+}
+
+/* 末尾「后续」：固定宽度，避免被四张卡片挤出视口 */
+.path-stairs__more {
+  flex: 0 0 5.25rem;
+  width: 5.25rem;
+  min-width: 5.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  align-self: stretch;
+  margin-left: 0.15rem;
+  padding: 1rem 0.45rem;
+  border: 1px dashed rgba(47, 93, 78, 0.45);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink-soft);
+  animation: path-stair-in 0.4s ease both;
+  animation-delay: 0.36s;
+}
+
+.path-stairs__more-dots {
+  font-family: var(--font-sans);
+  font-size: 1.8rem;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: var(--jade-deep);
+}
+
+.path-stairs__more-title {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  color: var(--jade-deep);
+}
+
+.path-stairs__more-label {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  writing-mode: horizontal-tb;
+  color: rgba(58, 69, 64, 0.72);
+}
+
+@media (max-width: 720px) {
+  .path-stairs__item {
+    flex: 0 0 auto;
+    max-width: none;
+    width: 6.8rem;
+  }
+
+  .path-stairs--sections .path-stairs__item {
+    flex: 0 0 auto;
+    width: 11rem;
+    min-width: 11rem;
+    max-width: none;
+  }
+
+  .path-stairs__link {
+    min-height: 24rem;
+  }
+
+  .path-stairs--sections {
+    min-height: 24rem;
+  }
+
+  .path-stairs--sections .path-stairs__card {
+    min-height: 24rem;
+  }
+
+  .path-stairs__title {
+    height: 16rem;
+    font-size: 1rem;
+  }
+
+  .path-stairs__more {
+    flex: 0 0 auto;
+    min-width: 3rem;
+    padding-inline: 0.6rem;
+  }
+}
+
+.home-block--stairs {
+  margin-bottom: 0.5rem;
+}
+
+/* 学修页：竖向时间轴列表 */
+.path-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  max-width: 40rem;
+}
+
+.path-list__item {
+  position: relative;
+}
+
+.path-list__item:not(:last-child) .path-list__step::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2.55rem;
+  bottom: -0.35rem;
+  width: 1px;
+  background: linear-gradient(180deg, var(--jade), rgba(47, 93, 78, 0.15));
+  transform: translateX(-50%);
+}
+
+.path-list__link {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.85rem 1.15rem;
+  align-items: start;
+  padding: 0.85rem 0.2rem 1.35rem;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s ease;
+  border-radius: 0.4rem;
+}
+
+.path-list__link:hover {
+  background: rgba(47, 93, 78, 0.05);
+}
+
+.path-list__step {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 0.15rem;
+}
+
+.path-list__dot {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--jade-deep);
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(47, 93, 78, 0.35);
+  box-shadow: 0 0 0 6px rgba(243, 246, 244, 0.9);
+}
+
+.path-list__item.is-soon .path-list__dot {
+  color: var(--ink-soft);
+  border-color: var(--line);
+}
+
+.path-list__body {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding-top: 0.2rem;
+}
+
+.path-list__meta {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--jade);
+  letter-spacing: 0.06em;
+}
+
+.path-list__item.is-soon .path-list__meta {
+  color: var(--ink-soft);
+}
+
+.path-list__title {
+  font-family: var(--font-serif);
+  font-size: 1.28rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.path-list__summary {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.section__head--extra {
+  margin-top: 3.5rem;
+}
+
+.home-block + .home-block {
+  margin-top: 3.25rem;
+}
+
+.home-group + .home-group {
+  margin-top: 1.75rem;
+}
+
+.home-group__title {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--jade-deep);
+  margin: 0 0 0.65rem;
+  padding-left: 0.15rem;
+}
+
+.home-block--books .section__head p {
+  margin-top: 0.35rem;
+}
+
+.book-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.book-list li {
+  border-bottom: 1px solid var(--line);
+}
+
+.book-list__link {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 0.2rem;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s ease;
+}
+
+.book-list__link:hover {
+  background: rgba(47, 93, 78, 0.05);
+}
+
+.book-list__title {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.book-list__meta {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--jade);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.book-list__hint {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin: -0.35rem 0.2rem 0.95rem;
+  letter-spacing: 0.02em;
 }
 
 .module-list {
@@ -285,16 +830,18 @@ img {
 .hero__title {
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
-  margin: 0 0 0.85rem;
-  letter-spacing: 0.06em;
+  font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+  margin: 0 0 1rem;
+  letter-spacing: 0.12em;
 }
 
 .hero__lead {
-  margin: 0 0 1.75rem;
-  max-width: 28rem;
-  color: rgba(244, 247, 245, 0.88);
-  font-size: 1rem;
+  margin: 0 auto 2rem;
+  max-width: 22rem;
+  color: rgba(244, 247, 245, 0.86);
+  font-size: 1.02rem;
+  line-height: 1.75;
+  letter-spacing: 0.04em;
 }
 
 .btn {
@@ -540,8 +1087,20 @@ img {
   border-top: 1px solid var(--line);
 }
 
-.learn-video {
+.learn-video-wrap {
   margin-top: 0.35rem;
+}
+
+.learn-media-hint {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.learn-video {
+  position: relative;
   border-radius: 0.55rem;
   overflow: hidden;
   background: #111;
@@ -553,6 +1112,28 @@ img {
   height: 100%;
   display: block;
   max-height: none;
+}
+
+.learn-video-status {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 3.1rem;
+  z-index: 2;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.45rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: center;
+  color: #f4f7f5;
+  background: rgba(26, 33, 30, 0.82);
+  pointer-events: none;
+}
+
+.learn-video-status[data-mode='error'] {
+  background: rgba(120, 40, 30, 0.88);
 }
 
 .learn-audio {
@@ -1026,6 +1607,6 @@ img {
   }
 
   .hero {
-    min-height: 88vh;
+    min-height: 52vh;
   }
 }

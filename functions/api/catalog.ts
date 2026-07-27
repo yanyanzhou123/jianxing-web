@@ -1,9 +1,25 @@
 import { type Env, json, requireAuth } from '../_lib/auth';
 
 const CATALOG_KEY = 'config/catalog.json';
+const BACKUP_PREFIX = 'config/backups/';
+const BACKUP_KEEP = 30;
+/** 课次减少超过此比例时需二次确认（force） */
+const DROP_CONFIRM_RATIO = 0.3;
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function countLessons(data: { modules?: any[] } | null | undefined): number {
+  return (data?.modules || []).reduce((n, mod) => {
+    return (
+      n +
+      (mod.chapters || []).reduce(
+        (n2: number, ch: any) => n2 + ((ch.lessons || []) as any[]).length,
+        0,
+      )
+    );
+  }, 0);
 }
 
 /** 将旧小节/旧 texts·audios·videos 压平到课一级 */
@@ -64,7 +80,7 @@ function flattenLesson(les: any) {
 /** 兼容旧版；v4 起课直接含文字/音视频，不再有小节 */
 function migrateCatalog(data: any) {
   if (!data || !Array.isArray(data.modules)) {
-    return { version: 4, references: [], modules: [] };
+    return { version: 4, rev: 0, references: [], modules: [] };
   }
 
   const references: any[] = [];
@@ -109,7 +125,7 @@ function migrateCatalog(data: any) {
       }));
     }
 
-    return {
+    const out: any = {
       id: mod.id || mod.slug,
       slug: mod.slug,
       title: mod.title,
@@ -121,9 +137,19 @@ function migrateCatalog(data: any) {
       references: [],
       chapters,
     };
+    if (mod.track) out.track = mod.track;
+    if (mod.pathOrder != null && mod.pathOrder !== '') {
+      out.pathOrder = Number(mod.pathOrder) || mod.pathOrder;
+    }
+    return out;
   });
 
-  return { version: 4, references, modules };
+  return {
+    version: 4,
+    rev: Number(data.rev) || 0,
+    references,
+    modules,
+  };
 }
 
 async function loadSeed(request: Request): Promise<unknown> {
@@ -133,7 +159,7 @@ async function loadSeed(request: Request): Promise<unknown> {
   return res.json();
 }
 
-async function readCatalog(env: Env, request: Request): Promise<unknown> {
+async function readCatalog(env: Env, request: Request): Promise<any> {
   if (!env.FILES) {
     return migrateCatalog(await loadSeed(request));
   }
@@ -147,6 +173,27 @@ async function readCatalog(env: Env, request: Request): Promise<unknown> {
   }
   const raw = await obj.json();
   return migrateCatalog(raw);
+}
+
+async function pruneBackups(env: Env) {
+  const listed = await env.FILES.list({ prefix: BACKUP_PREFIX, limit: 1000 });
+  const objs = (listed.objects || []).slice().sort((a, b) => a.key.localeCompare(b.key));
+  const excess = objs.length - BACKUP_KEEP;
+  if (excess <= 0) return;
+  await Promise.all(objs.slice(0, excess).map((o) => env.FILES.delete(o.key)));
+}
+
+async function backupCurrent(env: Env, raw: unknown, rev: number) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const key = `${BACKUP_PREFIX}catalog-${stamp}-rev${rev}.json`;
+  await env.FILES.put(key, JSON.stringify(raw, null, 2), {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  });
+  try {
+    await pruneBackups(env);
+  } catch {
+    // 清理失败不影响主保存
+  }
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -166,11 +213,47 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return json({ error: '未绑定 R2' }, 500);
   }
 
-  let body: unknown;
+  let body: any;
   try {
     body = await context.request.json();
   } catch {
     return json({ error: 'JSON 无效' }, 400);
+  }
+
+  const force = !!body?.force;
+  const baseRevRaw = body?.baseRev;
+  const baseRev =
+    baseRevRaw === undefined || baseRevRaw === null || baseRevRaw === ''
+      ? null
+      : Number(baseRevRaw);
+
+  // 客户端辅助字段不入库
+  if (body && typeof body === 'object') {
+    delete body.force;
+    delete body.baseRev;
+  }
+
+  const existingObj = await context.env.FILES.get(CATALOG_KEY);
+  let currentRaw: unknown = null;
+  let currentRev = 0;
+  let currentLessons = 0;
+  if (existingObj) {
+    currentRaw = await existingObj.json();
+    const current = migrateCatalog(currentRaw);
+    currentRev = Number(current.rev) || 0;
+    currentLessons = countLessons(current);
+  }
+
+  if (baseRev !== null && !Number.isNaN(baseRev) && baseRev !== currentRev) {
+    return json(
+      {
+        error: '目录已被他人更新，请重新加载后再保存，以免覆盖别人的修改。',
+        code: 'CONFLICT',
+        serverRev: currentRev,
+        clientRev: baseRev,
+      },
+      409,
+    );
   }
 
   const migrated = migrateCatalog(body);
@@ -181,9 +264,38 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     migrated.references = [];
   }
 
+  const newLessons = countLessons(migrated);
+  if (
+    !force &&
+    currentLessons > 0 &&
+    newLessons < currentLessons * (1 - DROP_CONFIRM_RATIO)
+  ) {
+    return json(
+      {
+        error: `课次从 ${currentLessons} 减少到 ${newLessons}，可能误删。确认要覆盖保存吗？`,
+        code: 'NEED_CONFIRM',
+        currentLessons,
+        newLessons,
+      },
+      409,
+    );
+  }
+
+  if (currentRaw != null) {
+    await backupCurrent(context.env, currentRaw, currentRev);
+  }
+
+  migrated.rev = currentRev + 1;
+  migrated.version = 4;
+
   await context.env.FILES.put(CATALOG_KEY, JSON.stringify(migrated, null, 2), {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
   });
 
-  return json({ ok: true });
+  return json({
+    ok: true,
+    rev: migrated.rev,
+    lessonCount: newLessons,
+    backedUp: currentRaw != null,
+  });
 };

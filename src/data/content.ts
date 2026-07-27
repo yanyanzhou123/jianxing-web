@@ -60,7 +60,7 @@ export function formatLessonMeta(lesson: Lesson) {
 
 export const modules = seedCatalog.modules.map((m) => ({
   ...m,
-  href: `/${m.slug}/`,
+  href: `/mod/?id=${encodeURIComponent(m.slug)}`,
   lessonCount: lessonCount(m),
 }));
 

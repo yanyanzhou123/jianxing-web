@@ -6,7 +6,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   <div class="page-hero">
     <div class="wrap">
       <h1>下载</h1>
-      <p>参考资料与各课音视频，根据运营后台配置自动列出。</p>
+      <p>参考资料与各课音视频，根据运营后台配置自动列出。点击「下载」将弹出保存位置。</p>
     </div>
   </div>
   <section class="section" style="padding-top: 0;">
@@ -15,7 +15,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260725e" defer></script>
+  <script src="/jx-catalog.js?v=20260726c" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const body = document.getElementById('dl-body');
@@ -48,11 +48,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             .map((g) => {
               const tr = g.rows
                 .map((row) => {
-                  const url = JX.assetUrl(row.path);
+                  const href = row.path ? JX.downloadHref(row.path) : '';
                   return `<tr>
                     <td>${JX.escape(row.name)}</td>
                     <td>${row.type}</td>
-                    <td>${url ? `<a href="${url}" download>下载</a>` : `待上传 · ${JX.escape(row.path)}`}</td>
+                    <td>${
+                      href
+                        ? `<a href="${href}" download>下载</a>`
+                        : `待上传 · ${JX.escape(row.path || '')}`
+                    }</td>
                   </tr>`;
                 })
                 .join('');

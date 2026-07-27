@@ -1,5 +1,11 @@
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/_astro/*
+  Cache-Control: public, max-age=0, must-revalidate
+
 /jx-catalog.js
-  Cache-Control: public, max-age=120, must-revalidate
+  Cache-Control: public, max-age=0, must-revalidate
 
 /ops-app.js
   Cache-Control: public, max-age=120, must-revalidate

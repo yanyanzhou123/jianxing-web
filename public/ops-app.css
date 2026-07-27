@@ -52,6 +52,13 @@
 @media (max-width: 860px) {
   .ops-grid { grid-template-columns: 1fr; }
 }
+.ops-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
 .ops-side {
   border: 1px solid var(--line);
   padding: 1rem;
@@ -141,11 +148,12 @@
 .ops-tree { display: grid; gap: 0.75rem; }
 .ops-tree-item {
   display: grid;
-  grid-template-columns: 1.4rem 1fr;
+  grid-template-columns: 2rem 1fr;
   gap: 0.45rem;
   border: 1px solid var(--line);
   padding: 0.7rem 0.75rem;
   background: rgba(243, 246, 244, 0.65);
+  position: relative;
 }
 .ops-tree-item--lesson {
   background: rgba(255, 255, 255, 0.55);
@@ -162,21 +170,120 @@
   outline: 2px dashed var(--jade);
   outline-offset: 2px;
 }
+.ops-tree-item.is-drop-before::before,
+.ops-tree-item.is-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0.35rem;
+  right: 0.35rem;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--jade);
+  z-index: 2;
+  pointer-events: none;
+}
+.ops-tree-item.is-drop-before::before { top: -2px; }
+.ops-tree-item.is-drop-after::after { bottom: -2px; }
 .ops-drag {
   cursor: grab;
   color: var(--ink-soft);
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: -0.08em;
   user-select: none;
-  padding-top: 0.35rem;
+  touch-action: none;
+  align-self: start;
+  width: 2rem;
+  min-height: 2.2rem;
+  margin: 0;
+  padding: 0.45rem 0.15rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.65);
+  font-family: var(--font-sans);
+}
+.ops-drag:hover {
+  color: var(--jade-deep);
+  border-color: var(--jade);
+  background: rgba(47, 93, 78, 0.08);
+}
+.ops-drag:active { cursor: grabbing; }
+.ops-move-btns {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  margin-left: 0;
+}
+.ops-move {
+  min-width: 2rem;
+  padding: 0.3rem 0.4rem !important;
+  line-height: 1;
+  font-weight: 600;
+}
+.ops-move:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .ops-tree-body { min-width: 0; }
+.ops-chapter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.ops-chapter-head__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+.ops-chapter-head__main .ops-inline-input {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+.ops-chapter-actions {
+  margin-top: 0.15rem;
+  margin-bottom: 0.15rem;
+}
+.ops-move-text {
+  flex-shrink: 0;
+  font-weight: 600 !important;
+  color: var(--jade-deep) !important;
+  border-color: rgba(47, 93, 78, 0.45) !important;
+  background: rgba(47, 93, 78, 0.08) !important;
+  min-width: 3.2rem;
+}
+.ops-move-text:disabled {
+  opacity: 0.4;
+  color: var(--ink-soft) !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+.ops-chapter-count {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.65);
+}
+.ops-tree-item--chapter.is-collapsed {
+  background: rgba(255, 255, 255, 0.45);
+}
 .ops-tree-line {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
   margin-bottom: 0.35rem;
+}
+.ops-tree-line .ops-move-btns {
+  margin-left: auto;
 }
 .ops-tree-label {
   font-family: var(--font-serif);

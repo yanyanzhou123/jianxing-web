@@ -8,9 +8,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="group-label" style="margin-top: 0;">内部工具</p>
       <h1>运营后台</h1>
       <p>
-        一级管理结构：章节 → 课（可拖拽排序）。进入课后再编辑文字、上传音视频。
-        上传成功会自动保存；改结构或文字后请点「保存到服务器」。
-        参考资料与大模块并列，在左侧单独入口维护。
+        可增删学修模块（左侧「+ 添加模块」）。模块内为：章节 → 课；排序可按住左侧 ⋮⋮ 拖动。
+        进入课后再编辑文字、上传音视频。上传成功会自动保存；改结构或文字后请点「保存到服务器」。
+        参考资料与模块并列，在左侧单独入口维护。
       </p>
     </div>
   </div>
@@ -28,7 +28,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       <div id="ops-app" hidden>
         <div id="dirty-banner" class="ops-dirty" hidden>
-          有未保存的修改，请点「保存到服务器」。上传文件成功后会自动保存。
+          有未保存的修改，请点「保存到服务器」。上传成功会自动保存。多人同时编辑时若冲突会提示重新加载；保存前自动备份上一版。
         </div>
 
         <div class="ops-toolbar">
@@ -40,7 +40,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
         <div class="ops-grid">
           <aside class="ops-side">
-            <p class="ops-label">内容</p>
+            <div class="ops-side-head">
+              <p class="ops-label" style="margin:0;">内容</p>
+              <button type="button" id="btn-add-module" class="btn ops-mini" style="color:inherit;border-color:var(--line);">+ 添加模块</button>
+            </div>
             <ul id="module-list" class="ops-nav"></ul>
           </aside>
 
@@ -53,6 +56,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   </section>
 </BaseLayout>
 
-<link rel="stylesheet" href="/ops-app.css" />
+<link rel="stylesheet" href="/ops-app.css?v=20260726c" />
 <script type="module" src="/ops-video-compress.js?v=20260725i"></script>
-<script src="/ops-app.js" defer></script>
+<script src="/ops-app.js?v=20260726c" defer></script>

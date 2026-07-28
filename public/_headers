@@ -7,6 +7,12 @@
 /jx-catalog.js
   Cache-Control: public, max-age=0, must-revalidate
 
+/jx-ask.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/jx-ask.css
+  Cache-Control: public, max-age=0, must-revalidate
+
 /ops-app.js
   Cache-Control: public, max-age=120, must-revalidate
 

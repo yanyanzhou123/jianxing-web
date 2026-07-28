@@ -1,6 +1,7 @@
 export interface Env {
   FILES: R2Bucket;
   OPS_PASSWORD: string;
+  DEEPSEEK_API_KEY?: string;
 }
 
 const COOKIE = 'jx_ops';

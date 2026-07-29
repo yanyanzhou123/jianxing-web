@@ -1,6 +1,56 @@
-# 见行修学网站 v1.2
+# 见行修学网站（本仓库）
 
-见行修学平台（https://jianxing.win）
+GitHub：https://github.com/yanyanzhou123/jianxing-web  
+本 README 随仓库维护，上传 GitHub 时请一并提交，避免产品线混淆。
+
+## 产品线总览（务必分清）
+
+见行体系目前有 **三条产品线**，域名 / 仓库 / 能力不同，改功能前先确认改的是哪一条：
+
+### 1. 见行修学网页（本仓库 · 主站）
+
+| 项 | 说明 |
+|------|------|
+| 域名 | https://jianxing.win |
+| 仓库 | **本仓库** `jianxing-web`（本地目录常为 `加行网站`） |
+| Cloudflare Pages | 项目名 `jianxing` |
+| R2 | 桶 `jianxing-files`（公开前缀以环境变量 `PUBLIC_R2_BASE` 为准） |
+| 定位 | 公开学修站：课表、听读/音视频、运营后台、见行解惑（检索卡 + DeepSeek）等 |
+| 当前代码版本 | 见下方「版本」；`package.json` 以仓库为准 |
+
+### 2. 净土修学（子域名分站 · 另部署）
+
+| 项 | 说明 |
+|------|------|
+| 域名 | https://jingtu.jianxing.win |
+| 品牌 | **净土修学**（首页文案：一心念佛，往生净土） |
+| 来源 | 由见行网站**复制/分叉**到子域名，内容与品牌改成净土向 |
+| 本仓库 | **不含**净土站源码；勿在本仓库直接改净土站 |
+| 线上特征（2026-07-29 核对） | 目录模型 **catalog v4**；前台 `jx-catalog.js?v=20260725d`；有 `/ops/`、`/api/catalog`；**无**见行解惑挂载、**无** `/app/` 学习中心导航；独立 R2 公开域 `pub-67be9c6f4a074660948f624ab1a41a1c.r2.dev` |
+| 模块（线上目录） | 念佛修法（open）、净土经典（coming）、净土修行（coming） |
+| 版本推断 | 大致对应见行 **v1.2.0 前后**（约 2026-07-25 工具链），**早于**主站 v1.2.1「学修问答 / 见行解惑」与后续自学 App；精确分叉提交未记在本仓库，以线上为准 |
+
+> 若找回净土站本地/Git 路径，应另建说明或独立仓库，并在本 README 补上链接。
+
+### 3. 自学 App（安卓壳 · 挂主站学习中心）
+
+| 项 | 说明 |
+|------|------|
+| 形态 | Capacitor 安卓工程（本仓库 `android/`）+ 网页学习中心 https://jianxing.win/app/ |
+| 包名 | `win.jianxing.app` |
+| 能力 | 用户名密码账号、个人学习进度（Cloudflare D1 `jianxing-app`）；内容仍读主站课表 |
+| 说明文档 | [安卓App说明.md](./安卓App说明.md) |
+| 注意 | App 打开的是**见行主站**学习中心，不是净土子域名 |
+
+```text
+jianxing.win          ← 产品线 1：见行修学网页（本仓库）
+jingtu.jianxing.win   ← 产品线 2：净土修学（分叉部署，源码不在本仓库）
+安卓 App              ← 产品线 3：壳 + /app/（账号进度；内容走主站）
+```
+
+---
+
+## 本仓库：见行修学网页
 
 面向学修内容的静态站点 + 运营可配置后台。目录与媒体存放于 Cloudflare R2，运营保存后前台刷新即可，无需为改内容重新部署。
 
@@ -12,6 +62,8 @@
 - 学习页提问时优先检索当前模块；约 8 次/分钟限流
 - 需配置 Cloudflare Pages Secret：`DEEPSEEK_API_KEY`
 - `package.json` 版本 **1.2.1**
+
+**后续（未单独打 tag，已在主站）**：检索卡厚卡选题与原文摘录优化；学员学习中心 `/app/` + D1 进度；安卓 Capacitor 工程与 APK 工作流。
 
 **v1.2.0**（2026-07-25）
 
@@ -68,19 +120,21 @@
 |------|------|
 | 前端 | Astro 7（SSG） |
 | 边缘 API | Cloudflare Pages Functions（`functions/`） |
-| 存储 | Cloudflare R2（目录 JSON + 媒体） |
+| 存储 | Cloudflare R2（目录 JSON + 媒体）；学员进度为 D1 `jianxing-app` |
 | 部署 | Wrangler → Pages 项目 `jianxing` |
+| 安卓 | Capacitor（`android/`） |
 
 ## 仓库结构（要点）
 
 ```text
-src/pages/          前台页面（首页、学修、学习页、参考资料、下载、ops）
+src/pages/          前台页面（首页、学修、学习页、/app 学习中心、参考资料、下载、ops）
 src/data/           站点信息与类型
 public/ops-app.js   运营后台逻辑
 public/jx-catalog.js 前台目录加载
-public/ops-video-compress.js  可选：浏览器端视频转码
-public/vendor/      ffmpeg 前端包（按需加载）
-functions/api/      login / catalog / upload* 等
+public/jx-ask.js    见行解惑
+public/jx-app.js    学习中心（账号进度）
+android/            Capacitor 安卓工程
+functions/api/      auth / progress / ask / cards / catalog / upload* 等
 ```
 
 ## 本地开发
@@ -123,7 +177,8 @@ catalog.json
 ## 运营说明
 
 日常操作见 [运营说明.md](./运营说明.md)。  
-后台地址：https://jianxing.win/ops/（勿公开传播）
+后台地址：https://jianxing.win/ops/（勿公开传播）  
+净土站运营入口：https://jingtu.jianxing.win/ops/（独立部署，勿与主站 ops 混用）
 
 ## 另一台电脑继续开发
 
@@ -134,4 +189,4 @@ npm install
 cp .env.example .env   # 自行填入 PUBLIC_R2_BASE
 ```
 
-读完本 README 与 `运营说明.md` 即可了解当前状态。线上目录与媒体在 R2，不在本仓库二进制里。
+读完本 README 与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。线上目录与媒体在 R2，不在本仓库二进制里。

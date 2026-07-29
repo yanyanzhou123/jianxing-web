@@ -43,6 +43,41 @@
   border-top: 1px solid var(--line);
   margin-bottom: 1rem;
 }
+
+.ops-cards-panel {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-sans);
+}
+.ops-cards-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.ops-cards-head strong {
+  font-family: var(--font-serif);
+  font-weight: 500;
+}
+.ops-cards-summary {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.ops-cards-hint {
+  margin: 0.55rem 0 0.7rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.ops-cards-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .ops-grid {
   display: grid;
   grid-template-columns: 14rem 1fr;

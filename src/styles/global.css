@@ -1509,6 +1509,48 @@ img {
   }
 }
 
+.learn-progress-bar {
+  margin: 0.75rem 0 1rem;
+  font-family: var(--font-sans);
+}
+
+.learn-progress-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.learn-progress-bar__user {
+  font-size: 0.85rem;
+  color: var(--jade-deep);
+}
+
+.learn-progress-bar__btn {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--jade);
+  background: transparent;
+  color: var(--jade-deep);
+  cursor: pointer;
+}
+
+.learn-progress-bar__status {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.learn-progress-bar__status.is-error {
+  color: #8a2f2f;
+}
+
+.learn-progress-bar__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
 .audio-box {
   margin: 1.75rem 0 2.25rem;
   padding: 1.1rem 1.2rem;

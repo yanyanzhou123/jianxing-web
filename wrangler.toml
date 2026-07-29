@@ -5,3 +5,8 @@ pages_build_output_dir = "dist"
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "jianxing-files"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jianxing-app"
+database_id = "633c13ef-9220-47dc-b920-589eb5588a86"

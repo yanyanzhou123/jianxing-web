@@ -1,4 +1,12 @@
 import { type Env, json, requireAuth } from '../_lib/auth';
+import {
+  enqueueLessons,
+  extractLessonsFromCatalog,
+  loadCardStore,
+  loadQueue,
+  saveQueue,
+  withHashes,
+} from '../_lib/cards';
 
 const CATALOG_KEY = 'config/catalog.json';
 const BACKUP_PREFIX = 'config/backups/';
@@ -292,10 +300,35 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
   });
 
+  // 正文变更的课默认排入空闲时段检索卡队列（12–14 / 18–次日9 北京时间）
+  let cardsQueued = 0;
+  try {
+    const prevLessons = currentRaw
+      ? await withHashes(extractLessonsFromCatalog(migrateCatalog(currentRaw)))
+      : [];
+    const nextLessons = await withHashes(extractLessonsFromCatalog(migrated));
+    const prevMap = new Map(prevLessons.map((l) => [l.lessonId, l.sourceHash]));
+    const store = await loadCardStore(context.env);
+    const changed = nextLessons.filter((l) => {
+      const oldHash = prevMap.get(l.lessonId);
+      if (oldHash !== l.sourceHash) return true;
+      const card = store.cards[l.lessonId];
+      return !card || card.sourceHash !== l.sourceHash;
+    });
+    if (changed.length) {
+      const queue = await loadQueue(context.env);
+      cardsQueued = enqueueLessons(queue, changed, 'offpeak');
+      await saveQueue(context.env, queue);
+    }
+  } catch {
+    // 排队失败不影响目录保存
+  }
+
   return json({
     ok: true,
     rev: migrated.rev,
     lessonCount: newLessons,
     backedUp: currentRaw != null,
+    cardsQueued,
   });
 };

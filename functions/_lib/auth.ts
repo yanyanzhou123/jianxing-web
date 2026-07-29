@@ -2,6 +2,12 @@ export interface Env {
   FILES: R2Bucket;
   OPS_PASSWORD: string;
   DEEPSEEK_API_KEY?: string;
+  /** 定时 Worker 调用 /api/cards 时使用 */
+  CRON_SECRET?: string;
+  /** 学员账号与进度 */
+  DB?: D1Database;
+  /** 学员会话签名密钥；未设时回退 OPS_PASSWORD */
+  APP_SESSION_SECRET?: string;
 }
 
 const COOKIE = 'jx_ops';

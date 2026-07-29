@@ -38,6 +38,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <span id="save-msg" class="ops-msg" style="margin:0;"></span>
         </div>
 
+        <div id="cards-panel" class="ops-cards-panel">
+          <div class="ops-cards-head">
+            <strong>检索卡</strong>
+            <span id="cards-summary" class="ops-cards-summary">加载中…</span>
+          </div>
+          <p class="ops-cards-hint">
+            默认在北京时间 <b>12:00–14:00</b>、<b>18:00–次日 09:00</b>（API 空闲时段）自动生成。
+            保存课文后会自动排队；也可在此手动排队或强制立即生成。
+          </p>
+          <div class="ops-cards-actions">
+            <button type="button" id="btn-cards-enqueue" class="btn ops-mini" style="color:inherit;border-color:var(--line);">排队缺失（空闲时段）</button>
+            <button type="button" id="btn-cards-process" class="btn ops-mini" style="color:inherit;border-color:var(--line);">立即处理 2 课</button>
+            <button type="button" id="btn-cards-force-all" class="btn ops-mini" style="color:inherit;border-color:var(--line);">立即生成全部（费高峰）</button>
+            <button type="button" id="btn-cards-refresh" class="btn ops-mini" style="color:inherit;border-color:var(--line);">刷新状态</button>
+          </div>
+          <p id="cards-msg" class="ops-msg" hidden style="margin:0.5rem 0 0;"></p>
+        </div>
+
         <div class="ops-grid">
           <aside class="ops-side">
             <div class="ops-side-head">
@@ -56,6 +74,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   </section>
 </BaseLayout>
 
-<link rel="stylesheet" href="/ops-app.css?v=20260726c" />
+<link rel="stylesheet" href="/ops-app.css?v=20260729c" />
 <script type="module" src="/ops-video-compress.js?v=20260725i"></script>
-<script src="/ops-app.js?v=20260726c" defer></script>
+<script src="/ops-app.js?v=20260729c" defer></script>

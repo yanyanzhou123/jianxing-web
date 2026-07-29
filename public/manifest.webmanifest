@@ -1,0 +1,19 @@
+{
+  "name": "见行修学 · 学习中心",
+  "short_name": "见行修学",
+  "description": "见行修学个人学习进度",
+  "start_url": "/app/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f9f8",
+  "theme_color": "#2f5d4e",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

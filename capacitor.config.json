@@ -1,0 +1,17 @@
+{
+  "appId": "win.jianxing.app",
+  "appName": "见行修学",
+  "webDir": "android-www",
+  "server": {
+    "url": "https://jianxing.win/app/",
+    "allowNavigation": [
+      "jianxing.win",
+      "*.jianxing.win",
+      "*.jianxing.pages.dev",
+      "*.r2.dev"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

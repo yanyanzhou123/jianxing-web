@@ -216,8 +216,13 @@
       if (result?.rev != null) catalog.rev = result.rev;
       setDirty(false);
       const backupHint = result?.backedUp ? '（已自动备份上一版）' : '';
-      const msg = (reason || '已保存。前台刷新即可看到变化。') + backupHint;
+      const cardHint =
+        result?.cardsQueued > 0
+          ? `；已将 ${result.cardsQueued} 课排入检索卡空闲时段队列`
+          : '';
+      const msg = (reason || '已保存。前台刷新即可看到变化。') + backupHint + cardHint;
       showMsg(saveMsg, msg, true);
+      refreshCardsStatus().catch(() => {});
     } catch (e) {
       if (e.code === 'CONFLICT') {
         showMsg(saveMsg, e.message || '目录冲突', false);
@@ -292,6 +297,89 @@
     setDirty(false);
     renderModuleList();
     renderEditor();
+    refreshCardsStatus().catch(() => {});
+  }
+
+  async function refreshCardsStatus() {
+    const el = $('cards-summary');
+    const msg = $('cards-msg');
+    if (!el) return;
+    try {
+      const data = await api('/api/cards');
+      const t = data.totals || {};
+      const windowHint = data.offPeak ? '当前空闲时段' : '当前非空闲时段';
+      el.textContent = `${windowHint} · 正文课 ${t.lessonsWithText || 0} · 已就绪 ${t.ready || 0} · 排队 ${t.queue || 0} · 缺失 ${t.missing || 0} · 过期 ${t.stale || 0} · 失败 ${t.failed || 0} · ${data.chinaTime || ''}`;
+      if (msg && !msg.dataset.sticky) msg.hidden = true;
+    } catch (e) {
+      el.textContent = e.message || '检索卡状态加载失败';
+    }
+  }
+
+  async function cardsAction(body) {
+    const msg = $('cards-msg');
+    showMsg(msg, '处理中…', true);
+    if (msg) msg.dataset.sticky = '1';
+    try {
+      const data = await api('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const extra = data.hint ? ` ${data.hint}` : '';
+      showMsg(
+        msg,
+        (data.enqueued != null
+          ? `已排队 ${data.enqueued} 课，队列 ${data.queueLeft}。`
+          : data.skippedOffPeak
+            ? '已跳过（非空闲时段）。'
+            : `已处理 ${data.processed || 0} 课，队列剩余 ${data.queueLeft ?? '?'}。`) + extra,
+        true,
+      );
+      await refreshCardsStatus();
+      return data;
+    } catch (e) {
+      showMsg(msg, e.message || String(e), false);
+      throw e;
+    } finally {
+      if (msg) delete msg.dataset.sticky;
+    }
+  }
+
+  async function forceGenerateAll() {
+    if (
+      !confirm(
+        '将在当前时段强制生成全部缺失/过期检索卡（不避开高峰，费用略高）。约 51 课可能需要十几分钟，期间请勿关闭页面。继续？',
+      )
+    ) {
+      return;
+    }
+    const msg = $('cards-msg');
+    showMsg(msg, '正在排队并强制生成…', true);
+    if (msg) msg.dataset.sticky = '1';
+    try {
+      await cardsAction({ action: 'enqueue-missing', priority: 'asap' });
+      let guard = 0;
+      while (guard++ < 80) {
+        const data = await api('/api/cards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'process', force: true, limit: 2 }),
+        });
+        showMsg(
+          msg,
+          `强制生成中… 本批 ${data.processed || 0}，队列剩余 ${data.queueLeft ?? '?'}`,
+          true,
+        );
+        await refreshCardsStatus();
+        if (!data.queueLeft) break;
+        if ((data.processed || 0) === 0) break;
+      }
+      showMsg(msg, '强制生成流程结束，请查看上方状态。', true);
+    } catch (e) {
+      showMsg(msg, e.message || String(e), false);
+    } finally {
+      if (msg) delete msg.dataset.sticky;
+    }
   }
 
   function currentModule() {
@@ -1170,6 +1258,19 @@
 
   $('btn-save')?.addEventListener('click', () => {
     saveCatalog().catch(() => {});
+  });
+
+  $('btn-cards-enqueue')?.addEventListener('click', () => {
+    cardsAction({ action: 'enqueue-missing', priority: 'offpeak' }).catch(() => {});
+  });
+  $('btn-cards-process')?.addEventListener('click', () => {
+    cardsAction({ action: 'process', force: true, limit: 2 }).catch(() => {});
+  });
+  $('btn-cards-force-all')?.addEventListener('click', () => {
+    forceGenerateAll().catch(() => {});
+  });
+  $('btn-cards-refresh')?.addEventListener('click', () => {
+    refreshCardsStatus().catch(() => {});
   });
 
   $('btn-add-module')?.addEventListener('click', () => {

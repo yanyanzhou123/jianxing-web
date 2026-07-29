@@ -9,12 +9,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <h1 id="lesson-title">…</h1>
       <p id="lesson-summary"></p>
       <p class="lesson-list__meta" id="lesson-meta"></p>
+      <div class="learn-progress-bar" id="learn-progress-bar"></div>
       <div id="lesson-stage"></div>
       <nav class="lesson-nav" aria-label="上下课" id="lesson-nav"></nav>
     </div>
   </article>
 
   <script src="/jx-catalog.js?v=20260725m" defer></script>
+  <script src="/jx-progress.js?v=20260729a" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(location.search);
@@ -64,6 +66,20 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       let tab = params.get('tab') || '';
       if (!allowed.includes(tab)) tab = 'text';
+
+      // 若 URL 未指定 tab，尝试用已保存进度的 lastTab
+      let progressPrefetch = null;
+      try {
+        for (let i = 0; i < 40 && typeof JXProgress?.me !== 'function'; i++) {
+          await new Promise((r) => setTimeout(r, 40));
+        }
+        if (typeof JXProgress?.me === 'function' && (await JXProgress.me())) {
+          progressPrefetch = await JXProgress.getOne(moduleSlug, id);
+          if (!params.get('tab') && progressPrefetch?.lastTab && allowed.includes(progressPrefetch.lastTab)) {
+            tab = progressPrefetch.lastTab;
+          }
+        }
+      } catch (_) {}
 
       const stage = document.getElementById('lesson-stage');
 
@@ -405,6 +421,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       });
 
       showPanel(tab);
+
+      // 登录用户：恢复/同步学习进度
+      if (typeof JXProgress?.attach === 'function') {
+        await JXProgress.attach({
+          moduleSlug,
+          lessonSlug: id,
+          getTab: () => activeTab,
+          root: document.getElementById('learn-progress-bar'),
+        });
+      }
 
       const idx = lessonsFlat.findIndex((l) => l.slug === lesson.slug);
       const prev = idx > 0 ? lessonsFlat[idx - 1] : null;

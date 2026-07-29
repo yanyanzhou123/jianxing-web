@@ -23,6 +23,10 @@ const path = Astro.url.pathname;
     <meta name="r2-base" content={R2_BASE} />
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2f5d4e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="见行修学" />
     {R2_BASE && <link rel="preconnect" href={R2_BASE} crossorigin />}
     {R2_BASE && <link rel="dns-prefetch" href={R2_BASE} />}
     <!-- 国内访问 Google Fonts 常被拦截；异步加载，避免卡住整站 CSS -->
@@ -48,7 +52,14 @@ const path = Astro.url.pathname;
       <slot />
     </main>
     <Footer />
-    <link rel="stylesheet" href="/jx-ask.css?v=20260728a" />
-    <script src="/jx-ask.js?v=20260728a" defer></script>
+    <link rel="stylesheet" href="/jx-ask.css?v=20260729a" />
+    <script src="/jx-ask.js?v=20260729a" defer></script>
+    <script is:inline>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

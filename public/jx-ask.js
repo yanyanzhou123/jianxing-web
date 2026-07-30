@@ -106,6 +106,14 @@
       </section>`;
     }
 
+    if (data.meta && data.meta.selection) {
+      const tip =
+        data.meta.selection === 'cards'
+          ? `检索方式：检索卡精选（候选 ${data.meta.shortlist || '—'} / 卡库 ${data.meta.cardsReady || 0}）`
+          : `检索方式：关键词回退（卡库 ${data.meta.cardsReady || 0}）`;
+      html += `<p class="jx-ask-meta">${escapeHtml(tip)}</p>`;
+    }
+
     answerEl.innerHTML = html;
     answerEl.hidden = !html;
   }

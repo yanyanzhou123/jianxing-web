@@ -7,16 +7,27 @@ import {
   isOffPeakChina,
   loadCardStore,
   loadQueue,
+  pickExcerptsFromCard,
   processQueueOnce,
+  scoreCardAgainstQuestion,
   type RetrievalCard,
 } from '../_lib/cards';
 
 const CATALOG_KEY = 'config/catalog.json';
 const RATE_PER_MIN = 8;
 const MAX_QUESTION_LEN = 500;
-const TOP_SOURCES = 4;
-const EXCERPT_MAX = 420;
-const CARD_BATCH = 14;
+/**
+ * 选题按「相关度门槛」，不是按条数凑满。
+ * - MIN_ABS_SCORE：最高分低于此值 → 视为没有可靠相关课
+ * - MIN_RELEVANCE_RATIO：只保留得分 ≥ 最高分×该比例 的课（如 0.55 = 相对相关度 ≥55%）
+ * - SOFT_MAX_SOURCES：仅防止极端情况撑爆界面，不是目标条数
+ */
+const MIN_ABS_SCORE = 22;
+const MIN_RELEVANCE_RATIO = 0.55;
+const SOFT_MAX_SOURCES = 6;
+const EXCERPT_MAX = 160;
+/** 本地粗排后再做门槛过滤的上限 */
+const CARD_SHORTLIST = 24;
 const SOURCE_LABELS = ['来源一', '来源二', '来源三', '来源四', '来源五', '来源六'];
 
 type LessonRow = {
@@ -95,7 +106,7 @@ function trimExcerpt(text: string): string {
   return `${t.slice(0, EXCERPT_MAX).trim()}…（节选）`;
 }
 
-function pickExcerpts(text: string, question: string, max = 2): string[] {
+function pickExcerptsKeyword(text: string, question: string, max = 2): string[] {
   const chunks: string[] = [];
   const step = 480;
   for (let i = 0; i < text.length; i += step - 60) {
@@ -179,7 +190,6 @@ function parseLessonIds(raw: string, allowed: Set<string>): string[] {
     const id = m[0];
     if (allowed.has(id) && !ids.includes(id)) ids.push(id);
   }
-  // 也尝试 JSON 数组
   try {
     const start = text.indexOf('[');
     const end = text.lastIndexOf(']');
@@ -198,61 +208,81 @@ function parseLessonIds(raw: string, allowed: Set<string>): string[] {
   return ids;
 }
 
+function byRelevanceThreshold<T extends { score: number }>(
+  scored: T[],
+  absMin = MIN_ABS_SCORE,
+  ratio = MIN_RELEVANCE_RATIO,
+): T[] {
+  if (!scored.length) return [];
+  const top = scored[0].score;
+  if (top < absMin) return [];
+  const floor = Math.max(absMin * 0.45, top * ratio);
+  return scored.filter((x) => x.score >= floor).slice(0, SOFT_MAX_SOURCES);
+}
+
+/**
+ * 检索卡选题：先按相关度门槛过滤，再让 DeepSeek 从达标候选里剔假阳性（只减不增）
+ */
 async function selectByCards(
   apiKey: string,
   question: string,
   cards: RetrievalCard[],
   preferModule?: string,
-): Promise<string[]> {
-  if (!cards.length) return [];
+): Promise<{ ids: string[]; shortlist: number; topScore: number; threshold: number }> {
+  if (!cards.length) return { ids: [], shortlist: 0, topScore: 0, threshold: 0 };
 
-  // 当前模块的卡优先排在前面
-  const sorted = cards.slice().sort((a, b) => {
-    const ap = preferModule && a.moduleSlug === preferModule ? 0 : 1;
-    const bp = preferModule && b.moduleSlug === preferModule ? 0 : 1;
-    return ap - bp;
-  });
+  const scored = cards
+    .map((c) => {
+      let score = scoreCardAgainstQuestion(c, question);
+      if (preferModule && c.moduleSlug === preferModule) score *= 1.25;
+      return { c, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, CARD_SHORTLIST);
 
-  const allowed = new Set(sorted.map((c) => c.lessonId));
-  const nominees = new Set<string>();
+  const pool = byRelevanceThreshold(scored);
+  const topScore = scored[0]?.score || 0;
+  const threshold = pool.length ? Math.min(...pool.map((x) => x.score)) : 0;
+  if (!pool.length) return { ids: [], shortlist: 0, topScore, threshold: 0 };
 
-  for (let i = 0; i < sorted.length; i += CARD_BATCH) {
-    const batch = sorted.slice(i, i + CARD_BATCH);
-    const index = batch.map(cardToIndexText).join('\n\n----\n\n');
-    const system = `你是学修检索助手。根据学员问题，从检索卡中选出最相关的课。
+  const allowed = new Set(pool.map((x) => x.c.lessonId));
+  const index = pool
+    .map((x) => {
+      const pct = topScore > 0 ? Math.round((x.score / topScore) * 100) : 0;
+      return `${cardToIndexText(x.c)}\n[本地相关度: ${pct}% / 分值 ${Math.round(x.score)}]`;
+    })
+    .join('\n\n----\n\n');
+
+  const system = `你是学修检索助手。下面候选课均已通过本地相关度门槛。
+你的任务是「剔假阳性」：只删不增。
 规则：
-1. 只输出 JSON 数组，元素为课ID（形如 moduleSlug/lessonSlug），不要其它文字。
-2. 每批最多选 4 个；若不相关可返回 []。
-3. 必须依据检索卡，尤其关注 canAnswer、topics、quotes、notCover。
-4. 不要编造不存在的课ID。`;
-    const user = `学员问题：${question}
-${preferModule ? `学员当前所在模块优先：${preferModule}\n` : ''}
-检索卡：
+1. 只输出 JSON 数组，元素必须是候选中的课ID（形如 moduleSlug/lessonSlug）。
+2. 保留确实能回答问题的课；删掉答非所问、仅关键词碰巧撞上、或 notCover 排除的。
+3. 不要为了凑数量保留弱相关；相关就留、不相关就删。可以全部删掉输出 []。
+4. 不要编造课ID，不要输出解释，不要新增候选外的课。`;
+  const user = `学员问题：${question}
+${preferModule ? `学员当前模块（可作轻微参考，勿因此保留不相关课）：${preferModule}\n` : ''}
+已过相关度门槛的候选：
 ${index}`;
-    const raw = await deepseekChat(apiKey, system, user, 0.1);
-    for (const id of parseLessonIds(raw, allowed)) nominees.add(id);
+
+  const raw = await deepseekChat(apiKey, system, user, 0.1);
+  let ids = parseLessonIds(raw, allowed);
+
+  // 模型若返回空：保留本地最高分那条（已过门槛），不凑满
+  if (!ids.length && pool[0]) {
+    ids = [pool[0].c.lessonId];
   }
 
-  const cand = [...nominees];
-  if (cand.length <= TOP_SOURCES) return cand;
-  if (cand.length === 0) return [];
+  // 最终仍按门槛约束（防止模型乱序后夹带弱项——实际上 allowed 已全是达标项）
+  const scoreMap = new Map(pool.map((x) => [x.c.lessonId, x.score]));
+  ids = ids
+    .filter((id) => (scoreMap.get(id) || 0) >= threshold)
+    .slice(0, SOFT_MAX_SOURCES);
 
-  // 精排
-  const map = new Map(sorted.map((c) => [c.lessonId, c]));
-  const index = cand
-    .map((id) => map.get(id))
-    .filter(Boolean)
-    .map((c) => cardToIndexText(c as RetrievalCard))
-    .join('\n\n----\n\n');
-  const system = `你是学修检索助手。从候选课中选出与问题最相关的最多 ${TOP_SOURCES} 课。
-只输出 JSON 数组（课ID），不要其它文字。`;
-  const user = `学员问题：${question}\n\n候选检索卡：\n${index}`;
-  const raw = await deepseekChat(apiKey, system, user, 0.1);
-  const final = parseLessonIds(raw, new Set(cand)).slice(0, TOP_SOURCES);
-  return final.length ? final : cand.slice(0, TOP_SOURCES);
+  return { ids, shortlist: pool.length, topScore, threshold };
 }
 
-/** 无卡时的关键词回退 */
 function keywordFallback(lessons: LessonRow[], question: string, preferModule?: string): string[] {
   const qSet = new Set(tokenize(question));
   if (!qSet.size) return [];
@@ -268,11 +298,12 @@ function keywordFallback(lessons: LessonRow[], question: string, preferModule?: 
         }
       }
       if (preferModule && l.moduleSlug === preferModule) hit *= 1.35;
-      return { id: l.lessonId, hit };
+      return { id: l.lessonId, score: hit };
     })
-    .filter((x) => x.hit > 0)
-    .sort((a, b) => b.hit - a.hit);
-  return scored.slice(0, TOP_SOURCES).map((x) => x.id);
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  // 关键词兜底：相对最高分门槛（绝对值用较低的 8）
+  return byRelevanceThreshold(scored, 8, MIN_RELEVANCE_RATIO).map((x) => x.id);
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -285,7 +316,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json({ error: '未配置 DeepSeek API Key' }, 500);
   }
 
-  // 空闲时段且有排队时，顺带消化 1 课（定时 Worker 的兜底）
   try {
     if (isOffPeakChina() && env.FILES) {
       const q = await loadQueue(env);
@@ -335,17 +365,34 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const store = await loadCardStore(env);
   const readyCards = Object.values(store.cards).filter((c) => byId.has(c.lessonId));
+  const cardById = new Map(readyCards.map((c) => [c.lessonId, c]));
 
   let selectedIds: string[] = [];
+  let selection: 'cards' | 'keyword-fallback' = 'keyword-fallback';
+  let shortlist = 0;
+  let topScore = 0;
+  let threshold = 0;
   try {
     if (readyCards.length >= 3) {
-      selectedIds = await selectByCards(env.DEEPSEEK_API_KEY, question, readyCards, prefer || undefined);
+      const picked = await selectByCards(
+        env.DEEPSEEK_API_KEY,
+        question,
+        readyCards,
+        prefer || undefined,
+      );
+      selectedIds = picked.ids;
+      shortlist = picked.shortlist;
+      topScore = picked.topScore;
+      threshold = picked.threshold;
+      if (selectedIds.length) selection = 'cards';
     }
     if (!selectedIds.length) {
       selectedIds = keywordFallback(lessons, question, prefer || undefined);
+      selection = 'keyword-fallback';
     }
   } catch (e) {
     selectedIds = keywordFallback(lessons, question, prefer || undefined);
+    selection = 'keyword-fallback';
     if (!selectedIds.length) {
       return json({ error: `检索失败：${String(e)}` }, 502);
     }
@@ -359,19 +406,41 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       sources: [],
       summary:
         '已录入的学修文稿中，未能找到与该问题明显相关的内容。建议换个问法，或直接到对应课程中阅读原文。',
+      meta: {
+        selection,
+        cardsReady: readyCards.length,
+        shortlist,
+        topScore,
+        threshold,
+        minRelevanceRatio: MIN_RELEVANCE_RATIO,
+      },
     });
   }
 
-  const sources: SourceBlock[] = selected.map((l, i) => ({
-    label: SOURCE_LABELS[i] || `来源${i + 1}`,
-    moduleSlug: l.moduleSlug,
-    moduleTitle: l.moduleTitle,
-    chapterTitle: l.chapterTitle,
-    lessonSlug: l.lessonSlug,
-    lessonTitle: l.lessonTitle,
-    href: `/mod/learn/?mod=${encodeURIComponent(l.moduleSlug)}&id=${encodeURIComponent(l.lessonSlug)}`,
-    excerpts: pickExcerpts(l.text, question, 2),
-  }));
+  const sources: SourceBlock[] = selected.map((l, i) => {
+    const card = cardById.get(l.lessonId);
+    let excerpts =
+      selection === 'cards'
+        ? pickExcerptsFromCard(l.text, card, question, 1, EXCERPT_MAX)
+        : [];
+    if (!excerpts.length) {
+      const more = pickExcerptsKeyword(l.text, question, 1);
+      excerpts = more.slice(0, 1);
+    }
+    if (!excerpts.length) excerpts = [trimExcerpt(l.text)];
+    // 关键词兜底也压短
+    excerpts = excerpts.map((ex) => trimExcerpt(ex)).slice(0, 1);
+    return {
+      label: SOURCE_LABELS[i] || `来源${i + 1}`,
+      moduleSlug: l.moduleSlug,
+      moduleTitle: l.moduleTitle,
+      chapterTitle: l.chapterTitle,
+      lessonSlug: l.lessonSlug,
+      lessonTitle: l.lessonTitle,
+      href: `/mod/learn/?mod=${encodeURIComponent(l.moduleSlug)}&id=${encodeURIComponent(l.lessonSlug)}`,
+      excerpts,
+    };
+  });
 
   const passages = sources.map((s) => ({ label: s.label, excerpts: s.excerpts }));
 
@@ -419,8 +488,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     })),
     summary,
     meta: {
-      selection: readyCards.length >= 3 ? 'cards' : 'keyword-fallback',
+      selection,
       cardsReady: readyCards.length,
+      shortlist,
+      topScore,
+      threshold,
+      minRelevanceRatio: MIN_RELEVANCE_RATIO,
     },
   });
 };

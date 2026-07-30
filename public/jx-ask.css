@@ -202,6 +202,13 @@
   line-height: 1.5;
 }
 
+.jx-ask-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft, #3a4540);
+  font-family: var(--font-sans, sans-serif);
+}
+
 @media (max-width: 640px) {
   .jx-ask-fab {
     right: 0.75rem;

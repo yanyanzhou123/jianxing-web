@@ -390,6 +390,170 @@ export function cardToIndexText(card: RetrievalCard): string {
     .join('\n');
 }
 
+/** 用检索卡字段对问题做本地粗排（避免把全部课硬塞给模型） */
+export function scoreCardAgainstQuestion(card: RetrievalCard, question: string): number {
+  const q = String(question || '').toLowerCase();
+  const qChars = new Set([...q].filter((c) => /[\u4e00-\u9fff]/.test(c)));
+  const bigrams = new Set<string>();
+  for (let i = 0; i < q.length - 1; i++) {
+    const a = q[i];
+    const b = q[i + 1];
+    if (/[\u4e00-\u9fff]/.test(a) && /[\u4e00-\u9fff]/.test(b)) bigrams.add(a + b);
+  }
+
+  const bags: { text: string; w: number }[] = [
+    { text: (card.canAnswer || []).join('\n'), w: 5 },
+    { text: (card.topics || []).join('\n'), w: 4 },
+    { text: (card.aliases || []).join('\n'), w: 4 },
+    { text: (card.terms || []).map((t) => `${t.term} ${t.gloss}`).join('\n'), w: 3 },
+    { text: (card.keyClaims || []).join('\n'), w: 3 },
+    { text: (card.quotes || []).join('\n'), w: 3 },
+    { text: (card.entities || []).join('\n'), w: 2 },
+    { text: card.summary || '', w: 2 },
+    { text: `${card.title}\n${card.moduleTitle}`, w: 2 },
+    {
+      text: (card.sections || [])
+        .map((s) => `${s.heading}\n${s.focus}\n${(s.keywords || []).join(' ')}\n${(s.canAnswer || []).join(' ')}`)
+        .join('\n'),
+      w: 3,
+    },
+  ];
+
+  let score = 0;
+  for (const bag of bags) {
+    const t = bag.text.toLowerCase();
+    if (!t) continue;
+    let hit = 0;
+    for (const bg of bigrams) {
+      if (t.includes(bg)) hit += 2;
+    }
+    for (const ch of qChars) {
+      if (t.includes(ch)) hit += 0.15;
+    }
+    // 整句问题出现在可答列表中
+    if (bag.w >= 4 && q.length >= 4 && t.includes(q.replace(/\s+/g, ''))) hit += 20;
+    score += hit * bag.w;
+  }
+
+  // notCover 命中则降权
+  const notCover = (card.notCover || []).join('\n').toLowerCase();
+  if (notCover) {
+    let penalty = 0;
+    for (const bg of bigrams) {
+      if (notCover.includes(bg)) penalty += 1;
+    }
+    score -= penalty * 3;
+  }
+
+  return score;
+}
+
+/** 根据检索卡挑选更贴题的原文片段（短、核心） */
+export function pickExcerptsFromCard(
+  fullText: string,
+  card: RetrievalCard | undefined,
+  question: string,
+  max = 1,
+  excerptMax = 160,
+): string[] {
+  const trim = (s: string) => {
+    let t = String(s || '').replace(/\s+/g, ' ').trim();
+    // 尽量在句号处截断，避免半句话
+    if (t.length > excerptMax) {
+      const cut = t.slice(0, excerptMax);
+      const stop = Math.max(cut.lastIndexOf('。'), cut.lastIndexOf('！'), cut.lastIndexOf('？'), cut.lastIndexOf('；'));
+      t = (stop > excerptMax * 0.4 ? cut.slice(0, stop + 1) : cut.trim()) + (stop > excerptMax * 0.4 ? '' : '…');
+    }
+    return t;
+  };
+
+  const text = String(fullText || '');
+  if (!text.trim()) return [];
+
+  const q = String(question || '');
+  const qBigrams: string[] = [];
+  for (let i = 0; i < q.length - 1; i++) {
+    const a = q[i];
+    const b = q[i + 1];
+    if (/[\u4e00-\u9fff]/.test(a) && /[\u4e00-\u9fff]/.test(b)) qBigrams.push(a + b);
+  }
+
+  const scoreSnippet = (s: string) => {
+    const low = s.toLowerCase();
+    let hit = 0;
+    for (const bg of qBigrams) if (low.includes(bg)) hit += 2;
+    return hit;
+  };
+
+  const out: string[] = [];
+  const pushUnique = (s: string) => {
+    const t = trim(s);
+    if (!t) return;
+    if (out.some((x) => x.slice(0, 24) === t.slice(0, 24))) return;
+    out.push(t);
+  };
+
+  // 1) 优先：卡内 quotes（通常已是核心句），只取高相关
+  const quotes = [...(card?.quotes || [])]
+    .map((qot) => ({ qot, score: scoreSnippet(qot) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.qot.length - b.qot.length);
+  for (const { qot } of quotes) {
+    if (out.length >= max) break;
+    // 正文定位后只取该句附近，少带上下文
+    const needle = qot.slice(0, Math.min(20, qot.length));
+    const idx = needle ? text.indexOf(needle) : -1;
+    if (idx >= 0) {
+      const start = Math.max(0, idx - 8);
+      const end = Math.min(text.length, idx + Math.min(qot.length + 20, excerptMax + 40));
+      pushUnique(text.slice(start, end));
+    } else {
+      pushUnique(qot);
+    }
+  }
+
+  // 2) 其次：分段 focus / heading，仍要求有字面重合
+  if (out.length < max && card?.sections?.length) {
+    const secs = [...card.sections]
+      .map((s) => ({
+        s,
+        score: scoreSnippet(
+          `${s.heading} ${s.focus} ${(s.keywords || []).join('')} ${(s.canAnswer || []).join('')}`,
+        ),
+      }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+    for (const { s } of secs) {
+      if (out.length >= max) break;
+      const focus = String(s.focus || '').trim();
+      if (focus) {
+        pushUnique(focus);
+        continue;
+      }
+      const needle = (s.heading || '').slice(0, 12);
+      if (!needle) continue;
+      const idx = text.indexOf(needle);
+      if (idx < 0) continue;
+      pushUnique(text.slice(idx, Math.min(text.length, idx + excerptMax)));
+    }
+  }
+
+  // 3) 再退：正文里找最高分的短窗口（约 excerptMax 字）
+  if (!out.length && text.trim()) {
+    const win = Math.min(excerptMax, 140);
+    let best = { score: -1, slice: '' };
+    for (let i = 0; i < text.length; i += Math.max(40, Math.floor(win / 2))) {
+      const slice = text.slice(i, i + win);
+      const score = scoreSnippet(slice);
+      if (score > best.score) best = { score, slice };
+      if (i + win >= text.length) break;
+    }
+    if (best.score > 0) pushUnique(best.slice);
+  }
+
+  return out;
+}
+
 export async function processQueueOnce(
   env: Env,
   catalog: any,

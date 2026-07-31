@@ -52,7 +52,7 @@ JX.HOME_SECTIONS = [
   },
   {
     title: '公共学修',
-    slugs: ['mod-fdjm6e2', 'mod-dt23wzh', 'puxian', 'pingdeng', 'xiuxin'],
+    slugs: ['mod-fdjm6e2', 'mod-dt23wzh', 'puxian', 'pingdeng', 'xiuxin', 'xinbaoshi'],
   },
   {
     title: '专业课',
@@ -80,29 +80,66 @@ JX.HOME_SECTIONS = [
     ],
   },
   {
-    title: '见行选读',
+    title: '见行选修',
     slugs: ['buli'],
   },
 ];
 
-JX.HOME_BOOKS = [
-  {
-    title: '老师出的书',
-    items: [
-      { id: 'ref-lunhui-book', title: '轮回中的我' },
-      { id: 'ref-qianxing-book', title: '前行【1-3】' },
-      { id: 'ref-foguang-book', title: '见行佛光【1-3】' },
-      { id: 'ref-buli-book', title: '不离见行' },
-    ],
-  },
-  {
-    title: '其他参考书',
-    items: [{ id: 'ref-puxian-book', title: '大圆满前行普贤上师言教' }],
-  },
-];
+/** @deprecated 书籍/材料已归「参考资料」，不再挂在学修目录 */
+JX.HOME_BOOKS = [];
 
 JX.modBySlug = (catalog, slug) =>
   (catalog?.modules || []).find((m) => m.slug === slug) || null;
+
+/** 旧版：按 slug 写死分区（无 section 字段时回退） */
+JX.legacySlugPlacement = () => {
+  if (JX._legacyPlacement) return JX._legacyPlacement;
+  const map = Object.create(null);
+  for (const sec of JX.HOME_SECTIONS || []) {
+    for (const slug of sec.slugs || []) {
+      map[slug] = { section: sec.title, group: '' };
+    }
+    for (const g of sec.groups || []) {
+      for (const slug of g.slugs || []) {
+        map[slug] = { section: sec.title, group: g.title || '' };
+      }
+    }
+  }
+  JX._legacyPlacement = map;
+  return map;
+};
+
+/**
+ * 解析模块所属分区。
+ * - section 为「未归类」：明确未归类
+ * - section 有值：用运营配置
+ * - 否则回退旧 slug 名单
+ */
+JX.resolveModSection = (mod) => {
+  if (!mod) return { section: '', group: '' };
+  const raw = mod.section;
+  if (raw === '未归类') return { section: '', group: '' };
+  const sec = String(raw ?? '').trim();
+  if (sec) {
+    return { section: sec, group: String(mod.sectionGroup || '').trim() };
+  }
+  const legacy = JX.legacySlugPlacement()[mod.slug];
+  if (legacy) return { section: legacy.section, group: legacy.group || '' };
+  return { section: '', group: '' };
+};
+
+JX.modulesInSection = (catalog, sectionTitle, groupTitle) => {
+  const wantGroup = groupTitle == null ? null : String(groupTitle);
+  return (catalog?.modules || []).filter((m) => {
+    const p = JX.resolveModSection(m);
+    if (p.section !== sectionTitle) return false;
+    if (wantGroup == null) return true;
+    return (p.group || '') === wantGroup;
+  });
+};
+
+JX.unsectionedModules = (catalog) =>
+  (catalog?.modules || []).filter((m) => !JX.resolveModSection(m).section);
 
 JX.refByIdOrTitle = (catalog, id, title) => {
   const refs = catalog?.references || [];
@@ -118,7 +155,7 @@ JX.renderBookRow = (catalog, item) => {
   const id = typeof item === 'string' ? '' : item.id || '';
   const ref = JX.refByIdOrTitle(catalog, id, title);
   const fileUrl = ref?.path ? JX.assetUrl(ref.path) : '';
-  const href = fileUrl || (ref?.id ? `/reference/#${encodeURIComponent(ref.id)}` : '/reference/');
+  const href = fileUrl || (ref?.id ? `/reference/books/#${encodeURIComponent(ref.id)}` : '/reference/books/');
   const meta = fileUrl ? '打开 PDF' : '进入参考资料';
   const external = fileUrl
     ? ' target="_blank" rel="noopener"'
@@ -168,13 +205,17 @@ JX.renderSlugList = (catalog, slugs) =>
     .map((slug, i) => JX.renderModuleRow(JX.modBySlug(catalog, slug), i))
     .join('')}</ul>`;
 
+JX.renderModList = (mods) =>
+  `<ul class="module-list">${(mods || [])
+    .map((mod, i) => JX.renderModuleRow(mod, i))
+    .join('')}</ul>`;
+
 /** 首页次第：基础课→实修篇 竖长台阶 */
 JX.HOME_STAIR_TITLES = ['基础课', '公共学修', '专业课', '实修篇'];
 
-JX.renderStairModLink = (catalog, slug) => {
-  const mod = JX.modBySlug(catalog, slug);
+JX.renderStairModFromMod = (mod) => {
   if (!mod) {
-    return `<li class="path-stairs__mod is-missing"><span>${JX.escape(slug)}</span></li>`;
+    return `<li class="path-stairs__mod is-missing"><span>（缺失）</span></li>`;
   }
   const open = mod.status === 'open';
   return `
@@ -183,34 +224,71 @@ JX.renderStairModLink = (catalog, slug) => {
     </li>`;
 };
 
+JX.renderSectionModsBody = (catalog, sec) => {
+  if (sec.groups?.length) {
+    const knownGroups = new Set(sec.groups.map((g) => g.title));
+    const groupBlocks = sec.groups
+      .map((g) => {
+        const mods = JX.modulesInSection(catalog, sec.title, g.title);
+        if (!mods.length) return '';
+        return `
+          <div class="home-group">
+            <h3 class="home-group__title">${JX.escape(g.title)}</h3>
+            ${JX.renderModList(mods)}
+          </div>`;
+      })
+      .join('');
+    const orphans = JX.modulesInSection(catalog, sec.title).filter(
+      (m) => !knownGroups.has(JX.resolveModSection(m).group),
+    );
+    const orphanBlock = orphans.length
+      ? `<div class="home-group"><h3 class="home-group__title">其他</h3>${JX.renderModList(orphans)}</div>`
+      : '';
+    return groupBlocks + orphanBlock;
+  }
+  return JX.renderModList(JX.modulesInSection(catalog, sec.title, ''));
+};
+
 JX.renderHomeStairs = (catalog) => {
   const pathSecs = (JX.HOME_SECTIONS || []).filter((s) =>
     (JX.HOME_STAIR_TITLES || []).includes(s.title)
   );
   const items = pathSecs
-    .map((sec, index) => {
+    .map((sec) => {
       let modsHtml = '';
+      let anyOpen = false;
       if (sec.groups?.length) {
-        modsHtml = sec.groups
-          .map(
-            (g) => `
+        const knownGroups = new Set(sec.groups.map((g) => g.title));
+        const groupLis = sec.groups
+          .map((g) => {
+            const mods = JX.modulesInSection(catalog, sec.title, g.title);
+            if (!mods.length) return '';
+            if (mods.some((m) => m.status === 'open')) anyOpen = true;
+            return `
             <li class="path-stairs__group">
               <span class="path-stairs__group-title">${JX.escape(g.title)}</span>
               <ul class="path-stairs__mods">
-                ${(g.slugs || []).map((slug) => JX.renderStairModLink(catalog, slug)).join('')}
+                ${mods.map((m) => JX.renderStairModFromMod(m)).join('')}
               </ul>
-            </li>`
-          )
+            </li>`;
+          })
           .join('');
-        modsHtml = `<ul class="path-stairs__groups">${modsHtml}</ul>`;
+        const orphans = JX.modulesInSection(catalog, sec.title).filter(
+          (m) => !knownGroups.has(JX.resolveModSection(m).group),
+        );
+        if (orphans.some((m) => m.status === 'open')) anyOpen = true;
+        const orphanLis = orphans.length
+          ? `<li class="path-stairs__group">
+              <span class="path-stairs__group-title">其他</span>
+              <ul class="path-stairs__mods">${orphans.map((m) => JX.renderStairModFromMod(m)).join('')}</ul>
+            </li>`
+          : '';
+        modsHtml = `<ul class="path-stairs__groups">${groupLis}${orphanLis}</ul>`;
       } else {
-        modsHtml = `<ul class="path-stairs__mods">
-          ${(sec.slugs || []).map((slug) => JX.renderStairModLink(catalog, slug)).join('')}
-        </ul>`;
+        const mods = JX.modulesInSection(catalog, sec.title, '');
+        anyOpen = mods.some((m) => m.status === 'open');
+        modsHtml = `<ul class="path-stairs__mods">${mods.map((m) => JX.renderStairModFromMod(m)).join('')}</ul>`;
       }
-      const anyOpen = (sec.groups || [{ slugs: sec.slugs || [] }]).some((g) =>
-        (g.slugs || []).some((slug) => JX.modBySlug(catalog, slug)?.status === 'open')
-      );
       return `
         <li class="path-stairs__item ${anyOpen ? 'is-open' : 'is-soon'}">
           <div class="path-stairs__card">
@@ -250,20 +328,11 @@ JX.renderHomeSections = (catalog, opts = {}) => {
   });
 
   const parts = listSecs.map((sec) => {
-    let body = '';
-    if (sec.groups?.length) {
-      body = sec.groups
-        .map(
-          (g) => `
-          <div class="home-group">
-            <h3 class="home-group__title">${JX.escape(g.title)}</h3>
-            ${JX.renderSlugList(catalog, g.slugs)}
-          </div>`
-        )
-        .join('');
-    } else {
-      body = JX.renderSlugList(catalog, sec.slugs);
+    const body = JX.renderSectionModsBody(catalog, sec);
+    if (!String(body).includes('module-list__title') && !String(body).includes('module-list')) {
+      // still render empty section? skip empty
     }
+    if (!body || body === '<ul class="module-list"></ul>') return '';
     return `
       <section class="home-block">
         <div class="section__head">
@@ -271,24 +340,22 @@ JX.renderHomeSections = (catalog, opts = {}) => {
         </div>
         ${body}
       </section>`;
-  });
+  }).filter(Boolean);
 
-  const books = (JX.HOME_BOOKS || [])
-    .map(
-      (b) => `
-      <section class="home-block home-block--books">
+  const extras = JX.unsectionedModules(catalog);
+  if (extras.length) {
+    parts.push(`
+      <section class="home-block">
         <div class="section__head">
-          <h2>${JX.escape(b.title)}</h2>
-          <p>PDF 文件可能较大，打开时请耐心等待；也可前往「下载」页保存到本地。</p>
+          <h2>未归类</h2>
+          <p>尚未选择学修分区的模块，可在运营后台为模块指定分区。</p>
         </div>
-        <ul class="book-list">
-          ${(b.items || []).map((item) => JX.renderBookRow(catalog, item)).join('')}
-        </ul>
-      </section>`
-    )
-    .join('');
+        ${JX.renderModList(extras)}
+      </section>`);
+  }
 
-  return main + parts.join('') + books;
+  // 书籍与其他材料不在学修目录展示，见 /reference/
+  return main + parts.join('');
 };
 
 /** 兼容旧调用 */

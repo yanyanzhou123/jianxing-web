@@ -1,5 +1,5 @@
 /**
- * 定时消化检索卡队列（仅北京时间空闲时段真正有活干，具体判断在站点 API）。
+ * 定时消化段落向量索引（检索卡已停用）。
  * 部署：在仓库根目录执行 npm run deploy:cron
  */
 export interface Env {
@@ -7,18 +7,22 @@ export interface Env {
   CRON_SECRET: string;
 }
 
-async function tick(env: Env) {
+async function post(env: Env, path: string, body: object) {
   const base = (env.SITE_URL || 'https://jianxing.win').replace(/\/$/, '');
-  const res = await fetch(`${base}/api/cards`, {
+  const res = await fetch(`${base}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Cron-Secret': env.CRON_SECRET,
     },
-    body: JSON.stringify({ action: 'process', limit: 2, force: false }),
+    body: JSON.stringify(body),
   });
   const text = await res.text();
-  console.log(`cards process ${res.status}: ${text.slice(0, 500)}`);
+  console.log(`${path} ${res.status}: ${text.slice(0, 500)}`);
+}
+
+async function tick(env: Env) {
+  await post(env, '/api/passages', { action: 'process', limit: 8 });
 }
 
 export default {

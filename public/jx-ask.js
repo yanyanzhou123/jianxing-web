@@ -107,10 +107,12 @@
     }
 
     if (data.meta && data.meta.selection) {
-      const tip =
-        data.meta.selection === 'cards'
-          ? `检索方式：检索卡精选（候选 ${data.meta.shortlist || '—'} / 卡库 ${data.meta.cardsReady || 0}）`
-          : `检索方式：关键词回退（卡库 ${data.meta.cardsReady || 0}）`;
+      let tip = '';
+      if (data.meta.selection === 'hybrid-vector') {
+        tip = `检索方式：向量混合检索（段落 ${data.meta.passages || '—'} / 命中 ${data.meta.returned ?? data.sources?.length ?? '—'}）`;
+      } else {
+        tip = `检索方式：关键词回退`;
+      }
       html += `<p class="jx-ask-meta">${escapeHtml(tip)}</p>`;
     }
 

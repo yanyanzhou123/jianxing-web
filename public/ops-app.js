@@ -8,17 +8,103 @@
   const dirtyBanner = $('dirty-banner');
 
   let catalog = null;
+  /** 公众号好文（独立于学修课表） */
+  let articleCollections = [];
+  let articlesRev = 0;
   let moduleIndex = 0;
-  /** @type {'module' | 'refs'} */
+  /** @type {'module' | 'refs' | 'articles'} */
   let sideMode = 'module';
   /** @type {'structure' | 'lesson'} */
   let view = 'structure';
   /** @type {{ ci: number, li: number } | null} */
   let editPath = null;
+  /** 参考书籍：null=列表，数字=正在编辑该项 */
+  let refsEditIndex = null;
+  /** 公众号好文集合：null=列表，数字=正在编辑该集合 */
+  let acolEditIndex = null;
   let dirty = false;
+  let articlesDirty = false;
   let saving = false;
   /** 展开中的章节 id（默认全部折叠） */
   const expandedChapterIds = new Set();
+  /** 学修侧栏：折叠中的分区标题 */
+  const collapsedNavGroups = new Set();
+  let navFilterReady = false;
+  let modSearch = '';
+  let modStatusFilter = 'all';
+
+  /** 与前台学修分区一致 */
+  const OPS_SECTIONS = [
+    { title: '基础课', slugs: ['mod-fngg2o9', 'mod-1n1ezwq'] },
+    {
+      title: '公共学修',
+      slugs: ['mod-fdjm6e2', 'mod-dt23wzh', 'puxian', 'pingdeng', 'xiuxin', 'xinbaoshi'],
+    },
+    {
+      title: '专业课',
+      groups: [
+        {
+          title: '大圆满前行',
+          slugs: ['mod-3dup9xj', 'wujiaxing', 'shangshi', 'qianxing'],
+        },
+        {
+          title: '菩提道次第广论',
+          slugs: ['fayuanwen', 'shesong', 'guanglun'],
+        },
+      ],
+    },
+    {
+      title: '实修篇',
+      slugs: [
+        'shixiu-zongshe',
+        'shixiu-renge',
+        'shixiu-yinguo',
+        'shixiu-chuli',
+        'shixiu-cibei',
+        'shixiu-kongxing',
+        'shixiu-zhenshiu',
+      ],
+    },
+    { title: '见行选修', slugs: ['buli'] },
+  ];
+
+  const OPS_SECTION_TITLES = OPS_SECTIONS.map((s) => s.title);
+  const OPS_PRO_GROUPS = (OPS_SECTIONS.find((s) => s.title === '专业课')?.groups || []).map(
+    (g) => g.title,
+  );
+
+  function legacyPlacementMap() {
+    const map = Object.create(null);
+    for (const sec of OPS_SECTIONS) {
+      for (const slug of sec.slugs || []) map[slug] = { section: sec.title, group: '' };
+      for (const g of sec.groups || []) {
+        for (const slug of g.slugs || []) map[slug] = { section: sec.title, group: g.title || '' };
+      }
+    }
+    return map;
+  }
+
+  function resolveOpsModSection(mod) {
+    if (!mod) return { section: '', group: '' };
+    if (mod.section === '未归类') return { section: '', group: '' };
+    const sec = String(mod.section ?? '').trim();
+    if (sec) return { section: sec, group: String(mod.sectionGroup || '').trim() };
+    const legacy = legacyPlacementMap()[mod.slug];
+    if (legacy) return { section: legacy.section, group: legacy.group || '' };
+    return { section: '', group: '' };
+  }
+
+  function backfillModuleSections() {
+    const map = legacyPlacementMap();
+    for (const mod of catalog?.modules || []) {
+      if (mod.section != null && String(mod.section).trim() !== '') continue;
+      const legacy = map[mod.slug];
+      if (legacy) {
+        mod.section = legacy.section;
+        mod.sectionGroup = legacy.group || '';
+      }
+    }
+  }
 
   function uid(prefix) {
     return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -88,8 +174,10 @@
     view = 'structure';
     editPath = null;
     setDirty(true);
+    collapsedNavGroups.delete('其他');
     renderModuleList();
     renderEditor();
+    showMsg(saveMsg, '已添加模块。可在「学修分区」下拉中选择归属；未选则出现在前台「未归类」。', true);
   }
 
   function assetUrl(path) {
@@ -109,9 +197,30 @@
     el.classList.toggle('is-error', !ok);
   }
 
+  function anyDirty() {
+    return dirty || articlesDirty;
+  }
+
+  function refreshDirtyBanner() {
+    if (!dirtyBanner) return;
+    if (sideMode === 'articles') {
+      dirtyBanner.hidden = !articlesDirty;
+      dirtyBanner.textContent = '公众号好文有未保存修改，请点「保存好文」（与学修课表分开保存）。';
+      return;
+    }
+    dirtyBanner.hidden = !dirty;
+    dirtyBanner.textContent =
+      '有未保存的修改，请点「保存到服务器」。上传成功会自动保存。多人同时编辑时若冲突会提示重新加载；保存前自动备份上一版。';
+  }
+
   function setDirty(value) {
     dirty = !!value;
-    if (dirtyBanner) dirtyBanner.hidden = !dirty;
+    refreshDirtyBanner();
+  }
+
+  function setArticlesDirty(value) {
+    articlesDirty = !!value;
+    refreshDirtyBanner();
   }
 
   async function api(url, options = {}) {
@@ -202,6 +311,8 @@
       if (!silent) showMsg(saveMsg, '保存中…', true);
       catalog.version = 4;
       if (!Array.isArray(catalog.references)) catalog.references = [];
+      // 公众号好文单独存 /api/articles，不写入课表
+      delete catalog.articleCollections;
       const payload = {
         ...catalog,
         version: 4,
@@ -216,13 +327,9 @@
       if (result?.rev != null) catalog.rev = result.rev;
       setDirty(false);
       const backupHint = result?.backedUp ? '（已自动备份上一版）' : '';
-      const cardHint =
-        result?.cardsQueued > 0
-          ? `；已将 ${result.cardsQueued} 课排入检索卡空闲时段队列`
-          : '';
-      const msg = (reason || '已保存。前台刷新即可看到变化。') + backupHint + cardHint;
+      const msg = (reason || '已保存。前台刷新即可看到变化。') + backupHint;
       showMsg(saveMsg, msg, true);
-      refreshCardsStatus().catch(() => {});
+      refreshPassagesStatus().catch(() => {});
     } catch (e) {
       if (e.code === 'CONFLICT') {
         showMsg(saveMsg, e.message || '目录冲突', false);
@@ -258,10 +365,50 @@
       await api('/api/session');
       loginBox.hidden = true;
       appBox.hidden = false;
-      await loadCatalog();
+      await Promise.all([loadCatalog(), loadArticles()]);
     } catch {
       loginBox.hidden = false;
       appBox.hidden = true;
+    }
+  }
+
+  async function loadArticles() {
+    const data = await api('/api/articles');
+    articleCollections = Array.isArray(data.collections) ? data.collections : [];
+    articlesRev = Number(data.rev) || 0;
+    setArticlesDirty(false);
+    if (sideMode === 'articles') renderArticleCollectionsView();
+  }
+
+  async function saveArticles(opts = {}) {
+    const { reason = '' } = opts;
+    if (saving) return;
+    saving = true;
+    try {
+      showMsg(saveMsg, '正在保存公众号好文…', true);
+      const result = await api('/api/articles', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          collections: articleCollections,
+          baseRev: articlesRev,
+        }),
+      });
+      if (result?.rev != null) articlesRev = result.rev;
+      setArticlesDirty(false);
+      showMsg(saveMsg, reason || '公众号好文已保存。前台刷新即可看到。', true);
+    } catch (e) {
+      if (e.code === 'CONFLICT') {
+        showMsg(saveMsg, e.message || '好文冲突', false);
+        if (confirm(`${e.message || '好文已被他人更新。'}\n\n是否重新加载？`)) {
+          await loadArticles();
+        }
+        throw e;
+      }
+      showMsg(saveMsg, e.message || String(e), false);
+      throw e;
+    } finally {
+      saving = false;
     }
   }
 
@@ -269,6 +416,7 @@
     catalog = await api('/api/catalog');
     if (!catalog.modules) catalog.modules = [];
     if (!Array.isArray(catalog.references)) catalog.references = [];
+    delete catalog.articleCollections;
     if (catalog.rev == null) catalog.rev = 0;
     // 兼容：把仍挂在模块下的参考资料提到顶层（与接口 migrate 一致的前端兜底）
     catalog.modules.forEach((mod, i) => {
@@ -291,90 +439,49 @@
       mod.statusLabel = statusLabelFor(mod.status);
       if (!mod.shortTitle) mod.shortTitle = mod.title || '';
     });
+    backfillModuleSections();
     view = 'structure';
     editPath = null;
     sideMode = 'module';
     setDirty(false);
     renderModuleList();
     renderEditor();
-    refreshCardsStatus().catch(() => {});
+    refreshPassagesStatus().catch(() => {});
   }
 
-  async function refreshCardsStatus() {
-    const el = $('cards-summary');
-    const msg = $('cards-msg');
+  async function refreshPassagesStatus() {
+    const el = $('passages-summary');
+    const msg = $('passages-msg');
     if (!el) return;
     try {
-      const data = await api('/api/cards');
-      const t = data.totals || {};
-      const windowHint = data.offPeak ? '当前空闲时段' : '当前非空闲时段';
-      el.textContent = `${windowHint} · 正文课 ${t.lessonsWithText || 0} · 已就绪 ${t.ready || 0} · 排队 ${t.queue || 0} · 缺失 ${t.missing || 0} · 过期 ${t.stale || 0} · 失败 ${t.failed || 0} · ${data.chinaTime || ''}`;
+      const data = await api('/api/passages');
+      const pending = (data.missing || 0) + (data.stale || 0);
+      const readyHint = data.hybridReady ? '混合检索可用' : '索引未就绪（请预热）';
+      el.textContent = `${readyHint} · 段落 ${data.passages || 0} · 课就绪 ${data.ready || 0} · 待建 ${pending} · ${data.updatedAt ? String(data.updatedAt).slice(0, 19).replace('T', ' ') : ''}`;
       if (msg && !msg.dataset.sticky) msg.hidden = true;
     } catch (e) {
-      el.textContent = e.message || '检索卡状态加载失败';
+      el.textContent = e.message || '问答索引状态加载失败';
     }
   }
 
-  async function cardsAction(body) {
-    const msg = $('cards-msg');
-    showMsg(msg, '处理中…', true);
+  async function warmPassagesBatch() {
+    const msg = $('passages-msg');
+    showMsg(msg, '正在重建索引…', true);
     if (msg) msg.dataset.sticky = '1';
     try {
-      const data = await api('/api/cards', {
+      const data = await api('/api/passages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ action: 'warm', limit: 12 }),
       });
-      const extra = data.hint ? ` ${data.hint}` : '';
       showMsg(
         msg,
-        (data.enqueued != null
-          ? `已排队 ${data.enqueued} 课，队列 ${data.queueLeft}。`
-          : data.skippedOffPeak
-            ? '已跳过（非空闲时段）。'
-            : `已处理 ${data.processed || 0} 课，队列剩余 ${data.queueLeft ?? '?'}。`) + extra,
+        data.done
+          ? `索引已就绪：段落 ${data.totalPassages || data.passages || 0}。`
+          : `本批处理 ${data.processed || 0} 课，写入 ${data.upserted || 0} 段，剩余约 ${data.left ?? '?'} 课。可再点预热。`,
         true,
       );
-      await refreshCardsStatus();
-      return data;
-    } catch (e) {
-      showMsg(msg, e.message || String(e), false);
-      throw e;
-    } finally {
-      if (msg) delete msg.dataset.sticky;
-    }
-  }
-
-  async function forceGenerateAll() {
-    if (
-      !confirm(
-        '将在当前时段强制生成全部缺失/过期检索卡（不避开高峰，费用略高）。约 51 课可能需要十几分钟，期间请勿关闭页面。继续？',
-      )
-    ) {
-      return;
-    }
-    const msg = $('cards-msg');
-    showMsg(msg, '正在排队并强制生成…', true);
-    if (msg) msg.dataset.sticky = '1';
-    try {
-      await cardsAction({ action: 'enqueue-missing', priority: 'asap' });
-      let guard = 0;
-      while (guard++ < 80) {
-        const data = await api('/api/cards', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'process', force: true, limit: 2 }),
-        });
-        showMsg(
-          msg,
-          `强制生成中… 本批 ${data.processed || 0}，队列剩余 ${data.queueLeft ?? '?'}`,
-          true,
-        );
-        await refreshCardsStatus();
-        if (!data.queueLeft) break;
-        if ((data.processed || 0) === 0) break;
-      }
-      showMsg(msg, '强制生成流程结束，请查看上方状态。', true);
+      await refreshPassagesStatus();
     } catch (e) {
       showMsg(msg, e.message || String(e), false);
     } finally {
@@ -406,198 +513,680 @@
       .replace(/"/g, '&quot;');
   }
 
-  function renderModuleList() {
-    const mods = catalog.modules
-      .map(
-        (m, i) =>
-          `<li><button type="button" data-mode="module" data-i="${i}" class="${
-            sideMode === 'module' && i === moduleIndex ? 'is-active' : ''
-          }">${escapeHtml(m.title)}</button></li>`,
-      )
-      .join('');
-    const refsBtn = `<li><button type="button" data-mode="refs" class="${
-      sideMode === 'refs' ? 'is-active' : ''
-    }">参考资料</button></li>`;
-    moduleList.innerHTML = mods + refsBtn;
-
-    moduleList.querySelectorAll('button').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (
-          dirty &&
-          !confirm('当前有未保存修改，切换将丢失这些修改（除非你已保存）。仍要切换？')
-        ) {
-          return;
-        }
-        const mode = btn.dataset.mode;
-        if (mode === 'refs') {
-          sideMode = 'refs';
-          view = 'structure';
-          editPath = null;
-        } else {
-          sideMode = 'module';
-          moduleIndex = Number(btn.dataset.i);
-          view = 'structure';
-          editPath = null;
-        }
-        renderModuleList();
-        renderEditor();
-      });
+  function ensureNavFilters() {
+    if (navFilterReady) return;
+    navFilterReady = true;
+    $('mod-search')?.addEventListener('input', (e) => {
+      modSearch = String(e.target.value || '').trim().toLowerCase();
+      renderModuleList();
+    });
+    $('mod-status-filter')?.addEventListener('change', (e) => {
+      modStatusFilter = e.target.value || 'all';
+      renderModuleList();
     });
   }
 
+  function moduleMatchesFilter(mod) {
+    if (!mod) return false;
+    if (modStatusFilter === 'open' && mod.status !== 'open') return false;
+    if (modStatusFilter === 'coming' && mod.status !== 'coming') return false;
+    if (!modSearch) return true;
+    const hay = `${mod.title || ''} ${mod.shortTitle || ''} ${mod.slug || ''}`.toLowerCase();
+    return hay.includes(modSearch);
+  }
+
+  function sectionContainsModule(sec, modOrSlug) {
+    const mod =
+      typeof modOrSlug === 'string'
+        ? catalog.modules.find((m) => m.slug === modOrSlug)
+        : modOrSlug;
+    if (!mod) return false;
+    return resolveOpsModSection(mod).section === sec.title;
+  }
+
+  function findSectionTitleForMod(mod) {
+    const sec = resolveOpsModSection(mod).section;
+    return sec || '其他';
+  }
+
+  function renderModButton(i) {
+    const m = catalog.modules[i];
+    if (!m) return '';
+    const active = sideMode === 'module' && i === moduleIndex;
+    const status = m.status === 'open' ? '开放中' : '即将开放';
+    return `<li>
+      <button type="button" class="ops-nav-mod ${active ? 'is-active' : ''}" data-i="${i}">
+        ${escapeHtml(m.title || m.slug || '未命名')}
+        <span class="ops-nav-mod__meta">${status}</span>
+      </button>
+    </li>`;
+  }
+
+  function renderModsForSection(sec, used) {
+    if (sec.groups?.length) {
+      const known = new Set(sec.groups.map((g) => g.title));
+      const blocks = sec.groups
+        .map((g) => {
+          const idxs = catalog.modules
+            .map((_, i) => i)
+            .filter((i) => {
+              if (used.has(i)) return false;
+              const p = resolveOpsModSection(catalog.modules[i]);
+              return p.section === sec.title && p.group === g.title;
+            });
+          idxs.forEach((i) => used.add(i));
+          const items = idxs
+            .filter((i) => moduleMatchesFilter(catalog.modules[i]))
+            .map(renderModButton)
+            .join('');
+          if (!items) return '';
+          return `<div class="ops-nav-sub"><p class="ops-nav-sub__title">${escapeHtml(g.title)}</p><ul class="ops-nav-group__body">${items}</ul></div>`;
+        })
+        .join('');
+      const orphanIdxs = catalog.modules
+        .map((_, i) => i)
+        .filter((i) => {
+          if (used.has(i)) return false;
+          const p = resolveOpsModSection(catalog.modules[i]);
+          return p.section === sec.title && !known.has(p.group);
+        });
+      orphanIdxs.forEach((i) => used.add(i));
+      const orphanItems = orphanIdxs
+        .filter((i) => moduleMatchesFilter(catalog.modules[i]))
+        .map(renderModButton)
+        .join('');
+      const orphanBlock = orphanItems
+        ? `<div class="ops-nav-sub"><p class="ops-nav-sub__title">其他</p><ul class="ops-nav-group__body">${orphanItems}</ul></div>`
+        : '';
+      return blocks + orphanBlock;
+    }
+    const idxs = catalog.modules
+      .map((_, i) => i)
+      .filter((i) => {
+        if (used.has(i)) return false;
+        return resolveOpsModSection(catalog.modules[i]).section === sec.title;
+      });
+    idxs.forEach((i) => used.add(i));
+    return `<ul class="ops-nav-group__body">${idxs
+      .filter((i) => moduleMatchesFilter(catalog.modules[i]))
+      .map(renderModButton)
+      .join('')}</ul>`;
+  }
+
+  function updateWorkspaceChrome() {
+    const grid = $('ops-grid');
+    grid?.classList.toggle('is-materials', sideMode === 'refs' || sideMode === 'articles');
+    document.querySelectorAll('.ops-ws-tab').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.ws === sideMode);
+    });
+    updateSaveButton();
+    updateContextHeader();
+  }
+
+  function updateContextHeader() {
+    const label = $('ops-ctx-label');
+    const title = $('ops-ctx-title');
+    if (!label || !title) return;
+    if (sideMode === 'refs') {
+      label.textContent = '参考书籍';
+      if (refsEditIndex != null && catalog?.references?.[refsEditIndex]) {
+        title.textContent = `编辑：${catalog.references[refsEditIndex].title || '未命名'}`;
+      } else {
+        title.textContent = '书籍列表';
+      }
+      return;
+    }
+    if (sideMode === 'articles') {
+      label.textContent = '公众号好文';
+      if (acolEditIndex != null && articleCollections?.[acolEditIndex]) {
+        title.textContent = `编辑：${articleCollections[acolEditIndex].title || '未命名集合'}`;
+      } else {
+        title.textContent = '集合列表';
+      }
+      return;
+    }
+    label.textContent = '学修';
+    const mod = currentModule();
+    if (!mod) {
+      title.textContent = '请选择模块';
+      return;
+    }
+    const lesson =
+      view === 'lesson' && editPath
+        ? mod.chapters?.[editPath.ci]?.lessons?.[editPath.li]
+        : null;
+    title.textContent = lesson
+      ? `${mod.title} · ${lesson.title || '未命名课'}`
+      : mod.title || '未命名模块';
+  }
+
+  function switchWorkspace(mode) {
+    if (mode === sideMode) return;
+    if (sideMode === 'articles' && mode !== 'articles' && articlesDirty) {
+      if (!confirm('公众号好文有未保存修改，切换将丢失。仍要切换？')) return;
+    }
+    if (sideMode !== 'articles' && mode !== sideMode && dirty) {
+      if (!confirm('学修有未保存修改，切换分区将丢失这些修改（除非已保存）。仍要切换？')) return;
+    }
+    sideMode = mode;
+    view = 'structure';
+    editPath = null;
+    refsEditIndex = null;
+    acolEditIndex = null;
+    renderModuleList();
+    renderEditor();
+    refreshDirtyBanner();
+    updateWorkspaceChrome();
+  }
+
+  function selectModule(i) {
+    if (sideMode === 'module' && i === moduleIndex && view === 'structure') return;
+    if (dirty && !(sideMode === 'module' && i === moduleIndex)) {
+      if (!confirm('当前有未保存修改，切换将丢失这些修改（除非你已保存）。仍要切换？')) return;
+    }
+    sideMode = 'module';
+    moduleIndex = i;
+    view = 'structure';
+    editPath = null;
+    const mod = catalog.modules[i];
+    if (mod) collapsedNavGroups.delete(findSectionTitleForMod(mod));
+    renderModuleList();
+    renderEditor();
+    refreshDirtyBanner();
+    updateWorkspaceChrome();
+  }
+
+  function isGroupCollapsed(title, hasCurrent) {
+    if (modSearch) return false;
+    if (hasCurrent) return false;
+    if (!renderModuleList._collapseInited) return true;
+    return collapsedNavGroups.has(title);
+  }
+
+  function renderModuleList() {
+    ensureNavFilters();
+    if (!catalog?.modules) {
+      moduleList.innerHTML = '';
+      return;
+    }
+
+    const used = new Set();
+    const parts = [];
+    const currentMod = catalog.modules[moduleIndex];
+
+    for (const sec of OPS_SECTIONS) {
+      const body = renderModsForSection(sec, used);
+      if (!String(body).includes('ops-nav-mod')) continue;
+
+      const hasCurrent = sideMode === 'module' && sectionContainsModule(sec, currentMod);
+      const collapsed = isGroupCollapsed(sec.title, hasCurrent);
+      if (collapsed) collapsedNavGroups.add(sec.title);
+      else collapsedNavGroups.delete(sec.title);
+
+      parts.push(`
+        <div class="ops-nav-group ${collapsed ? 'is-collapsed' : ''}">
+          <button type="button" class="ops-nav-group__head" data-toggle-group="${escapeHtml(sec.title)}">
+            <span>${escapeHtml(sec.title)}</span>
+            <span>${collapsed ? '▸' : '▾'}</span>
+          </button>
+          <div class="ops-nav-group__body-wrap">${body}</div>
+        </div>`);
+    }
+
+    const otherIdx = catalog.modules
+      .map((_, i) => i)
+      .filter(
+        (i) =>
+          !used.has(i) &&
+          !resolveOpsModSection(catalog.modules[i]).section &&
+          moduleMatchesFilter(catalog.modules[i]),
+      );
+    if (otherIdx.length) {
+      const title = '其他';
+      const hasCurrent = sideMode === 'module' && otherIdx.includes(moduleIndex);
+      const collapsed = isGroupCollapsed(title, hasCurrent);
+      if (collapsed) collapsedNavGroups.add(title);
+      else collapsedNavGroups.delete(title);
+      parts.push(`
+        <div class="ops-nav-group ${collapsed ? 'is-collapsed' : ''}">
+          <button type="button" class="ops-nav-group__head" data-toggle-group="${title}">
+            <span>${title}</span>
+            <span>${collapsed ? '▸' : '▾'}</span>
+          </button>
+          <ul class="ops-nav-group__body">${otherIdx.map(renderModButton).join('')}</ul>
+        </div>`);
+    }
+
+    renderModuleList._collapseInited = true;
+    moduleList.innerHTML = parts.length
+      ? parts.join('')
+      : '<p class="ops-empty ops-empty--sm">无匹配模块</p>';
+
+    moduleList.querySelectorAll('[data-toggle-group]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.toggleGroup;
+        renderModuleList._collapseInited = true;
+        if (collapsedNavGroups.has(name)) collapsedNavGroups.delete(name);
+        else collapsedNavGroups.add(name);
+        renderModuleList();
+      });
+    });
+
+    moduleList.querySelectorAll('.ops-nav-mod[data-i]').forEach((btn) => {
+      btn.addEventListener('click', () => selectModule(Number(btn.dataset.i)));
+    });
+
+    updateWorkspaceChrome();
+  }
+
+  function updateSaveButton() {
+    const btn = $('btn-save');
+    if (!btn) return;
+    btn.textContent = sideMode === 'articles' ? '保存好文' : '保存到服务器';
+  }
+
   function renderEditor() {
+    updateWorkspaceChrome();
     if (sideMode === 'refs') {
       renderReferencesView();
+      return;
+    }
+    if (sideMode === 'articles') {
+      renderArticleCollectionsView();
       return;
     }
 
     const mod = currentModule();
     if (!mod) {
       editor.innerHTML =
-        '<p class="ops-empty">暂无模块。请点击左侧「+ 添加模块」，或从已有模块进入编辑。</p>';
+        '<p class="ops-empty">暂无模块。请点击左侧「+ 添加」，或从已有模块进入编辑。</p>';
+      updateContextHeader();
       return;
     }
     if (!mod.chapters) mod.chapters = [];
 
     if (view === 'lesson' && editPath) {
       renderLessonView(mod);
+      updateContextHeader();
       return;
     }
     renderStructureView(mod);
+    updateContextHeader();
+  }
+
+  function renderArticleCollectionsView() {
+    if (!Array.isArray(articleCollections)) articleCollections = [];
+    const cols = articleCollections;
+    updateSaveButton();
+
+    if (acolEditIndex != null && !cols[acolEditIndex]) acolEditIndex = null;
+
+    if (acolEditIndex == null) {
+      editor.innerHTML = `
+        <p class="ops-label">公众号好文</p>
+        <p class="ops-empty" style="margin-top:0;">
+          先从列表进入某一集合再编辑。链接型集合点开即外链；文字型集合可再维护文章。此处单独保存。
+        </p>
+        <div class="ops-row">
+          <button type="button" class="btn ops-mini" id="add-acol" style="color:inherit;border-color:var(--line);">+ 添加集合</button>
+        </div>
+        <ul class="ops-pick-list" id="acols-box"></ul>
+      `;
+      const box = $('acols-box');
+      box.innerHTML = cols.length
+        ? cols
+            .map((col, i) => {
+              const kind = col.kind === 'link' ? '链接型' : '文字型';
+              const n = (col.articles || []).length;
+              const meta =
+                col.kind === 'link'
+                  ? col.url
+                    ? '已填链接'
+                    : '未填链接'
+                  : n
+                    ? `${n} 篇文章`
+                    : '暂无文章';
+              return `
+                <li class="ops-pick-item">
+                  <button type="button" class="ops-pick-main" data-edit-acol="${i}">
+                    <strong>${escapeHtml(col.title || '未命名集合')}</strong>
+                    <span>${kind} · ${escapeHtml(meta)}</span>
+                  </button>
+                  <span class="ops-pick-actions">
+                    <button type="button" class="btn ops-mini ops-move" data-acol-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+                    <button type="button" class="btn ops-mini ops-move" data-acol-down="${i}" ${i >= cols.length - 1 ? 'disabled' : ''}>↓</button>
+                  </span>
+                </li>`;
+            })
+            .join('')
+        : '<li class="ops-empty">暂无集合，请添加。</li>';
+
+      $('add-acol')?.addEventListener('click', () => {
+        cols.push({
+          id: uid('acol'),
+          title: `新集合 ${cols.length + 1}`,
+          kind: 'text',
+          url: '',
+          note: '',
+          articles: [],
+        });
+        acolEditIndex = cols.length - 1;
+        setArticlesDirty(true);
+        renderArticleCollectionsView();
+      });
+      box.querySelectorAll('[data-edit-acol]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          acolEditIndex = Number(btn.dataset.editAcol);
+          renderArticleCollectionsView();
+        });
+      });
+      box.querySelectorAll('[data-acol-up]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.dataset.acolUp);
+          if (i <= 0) return;
+          const [item] = cols.splice(i, 1);
+          cols.splice(i - 1, 0, item);
+          setArticlesDirty(true);
+          renderArticleCollectionsView();
+        });
+      });
+      box.querySelectorAll('[data-acol-down]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.dataset.acolDown);
+          if (i >= cols.length - 1) return;
+          const [item] = cols.splice(i, 1);
+          cols.splice(i + 1, 0, item);
+          setArticlesDirty(true);
+          renderArticleCollectionsView();
+        });
+      });
+      updateContextHeader();
+      return;
+    }
+
+    const i = acolEditIndex;
+    const col = cols[i];
+    const kind = col.kind === 'link' ? 'link' : 'text';
+    const articles = Array.isArray(col.articles) ? col.articles : [];
+
+    editor.innerHTML = `
+      <div class="ops-row">
+        <button type="button" class="btn ops-mini" id="back-acol-list" style="color:inherit;border-color:var(--line);">← 返回列表</button>
+        <button type="button" class="btn ops-mini" id="del-acol" style="color:inherit;border-color:var(--line);">删除集合</button>
+      </div>
+      <p class="ops-label">编辑集合</p>
+      <label class="ops-field">集合名称<input id="acol-title" value="${escapeHtml(col.title || '')}" /></label>
+      <label class="ops-field">类型
+        <select id="acol-kind">
+          <option value="text" ${kind === 'text' ? 'selected' : ''}>文字型（进入文章列表）</option>
+          <option value="link" ${kind === 'link' ? 'selected' : ''}>链接型（集合本身即超链接）</option>
+        </select>
+      </label>
+      ${
+        kind === 'link'
+          ? `<label class="ops-field">集合超链接<input id="acol-url" value="${escapeHtml(col.url || '')}" placeholder="https://..." /></label>`
+          : ''
+      }
+      <label class="ops-field">说明（可选）<input id="acol-note" value="${escapeHtml(col.note || '')}" /></label>
+      ${
+        kind === 'text'
+          ? `
+        <div class="ops-acol-articles">
+          <div class="ops-row" style="margin-top:0;">
+            <p class="ops-label" style="margin:0;flex:1;">集合内文章</p>
+            <button type="button" class="btn ops-mini" id="add-art" style="color:inherit;border-color:var(--line);">+ 添加文章</button>
+          </div>
+          <div id="arts-box"></div>
+        </div>`
+          : '<p class="ops-empty ops-empty--sm">链接型集合无需添加文章，前台点击集合标题即打开上方超链接。</p>'
+      }
+    `;
+
+    $('back-acol-list')?.addEventListener('click', () => {
+      acolEditIndex = null;
+      renderArticleCollectionsView();
+    });
+    $('del-acol')?.addEventListener('click', () => {
+      if (!confirm('确定删除该集合及其文章？')) return;
+      cols.splice(i, 1);
+      acolEditIndex = null;
+      setArticlesDirty(true);
+      renderArticleCollectionsView();
+    });
+
+    const bindField = (id, field, rerenderOnChange = false) => {
+      const el = $(id);
+      if (!el) return;
+      const handler = () => {
+        col[field] = el.value;
+        if (field === 'kind') {
+          if (col.kind !== 'link') col.kind = 'text';
+          if (col.kind === 'link') col.articles = [];
+          else if (!Array.isArray(col.articles)) col.articles = [];
+        }
+        setArticlesDirty(true);
+        updateContextHeader();
+        if (rerenderOnChange) renderArticleCollectionsView();
+      };
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', handler);
+    };
+    bindField('acol-title', 'title');
+    bindField('acol-kind', 'kind', true);
+    bindField('acol-url', 'url');
+    bindField('acol-note', 'note');
+
+    if (kind === 'text') {
+      const box = $('arts-box');
+      box.innerHTML = articles.length
+        ? articles
+            .map(
+              (art, j) => `
+            <div class="ops-tree-item ops-tree-item--lesson">
+              <div class="ops-tree-body" style="grid-column:1/-1;">
+                <label class="ops-field">名称<input data-art-field="${j}:title" value="${escapeHtml(art.title || '')}" /></label>
+                <label class="ops-field">超链接<input data-art-field="${j}:url" value="${escapeHtml(art.url || '')}" placeholder="https://mp.weixin.qq.com/..." /></label>
+                <label class="ops-field">备注（可选）<input data-art-field="${j}:note" value="${escapeHtml(art.note || '')}" /></label>
+                <div class="ops-tree-actions">
+                  <button type="button" class="btn ops-mini" data-del-art="${j}" style="color:inherit;border-color:var(--line);">删除文章</button>
+                </div>
+              </div>
+            </div>`,
+            )
+            .join('')
+        : '<p class="ops-empty ops-empty--sm">暂无文章，请添加。</p>';
+
+      $('add-art')?.addEventListener('click', () => {
+        if (!Array.isArray(col.articles)) col.articles = [];
+        col.articles.push({
+          id: uid('art'),
+          title: `新文章 ${col.articles.length + 1}`,
+          url: '',
+          note: '',
+        });
+        setArticlesDirty(true);
+        renderArticleCollectionsView();
+      });
+      box.querySelectorAll('[data-art-field]').forEach((input) => {
+        input.addEventListener('input', () => {
+          const [j, field] = input.dataset.artField.split(':');
+          const art = col.articles?.[Number(j)];
+          if (!art) return;
+          art[field] = input.value;
+          setArticlesDirty(true);
+        });
+      });
+      box.querySelectorAll('[data-del-art]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const j = Number(btn.dataset.delArt);
+          if (!confirm('确定删除该文章？')) return;
+          col.articles.splice(j, 1);
+          setArticlesDirty(true);
+          renderArticleCollectionsView();
+        });
+      });
+    }
+    updateContextHeader();
   }
 
   function renderReferencesView() {
     if (!Array.isArray(catalog.references)) catalog.references = [];
     const refs = catalog.references;
+    if (refsEditIndex != null && !refs[refsEditIndex]) refsEditIndex = null;
 
-    editor.innerHTML = `
-      <p class="ops-label">参考资料（与大模块并列）</p>
-      <p class="ops-empty" style="margin-top:0;">在此维护全站参考书 / PDF，不归属某个学修模块。</p>
-      <div class="ops-row">
-        <button type="button" class="btn ops-mini" id="add-ref" style="color:inherit;border-color:var(--line);">+ 添加资料</button>
-      </div>
-      <div id="refs-box"></div>
-    `;
+    if (refsEditIndex == null) {
+      editor.innerHTML = `
+        <p class="ops-label">参考书籍</p>
+        <p class="ops-empty" style="margin-top:0;">先从列表进入某一本书再编辑标题、说明与 PDF。</p>
+        <div class="ops-row">
+          <button type="button" class="btn ops-mini" id="add-ref" style="color:inherit;border-color:var(--line);">+ 添加书籍</button>
+        </div>
+        <ul class="ops-pick-list" id="refs-box"></ul>
+      `;
+      const box = $('refs-box');
+      box.innerHTML = refs.length
+        ? refs
+            .map((ref, i) => {
+              const hasFile = !!String(ref.path || '').trim();
+              return `
+                <li class="ops-pick-item">
+                  <button type="button" class="ops-pick-main" data-edit-ref="${i}">
+                    <strong>${escapeHtml(ref.title || '未命名')}</strong>
+                    <span>${escapeHtml(ref.meta || (hasFile ? '已上传文件' : '尚未上传'))}</span>
+                  </button>
+                </li>`;
+            })
+            .join('')
+        : '<li class="ops-empty">暂无参考书籍，请添加。</li>';
 
-    const box = $('refs-box');
-    box.innerHTML = refs.length
-      ? refs
-          .map((ref, i) => {
-            const url = assetUrl(ref.path);
-            return `
-              <div class="ops-tree-item ops-tree-item--chapter" data-ref-i="${i}">
-                <div class="ops-tree-body" style="grid-column:1/-1;">
-                  <label class="ops-field">标题<input data-ref="${i}:title" value="${escapeHtml(ref.title || '')}" /></label>
-                  <label class="ops-field">说明 / 作者<input data-ref="${i}:meta" value="${escapeHtml(ref.meta || '')}" /></label>
-                  <label class="ops-field">文件路径<input data-ref="${i}:path" value="${escapeHtml(ref.path || '')}" /></label>
-                  ${
-                    ref.path && url
-                      ? `<div class="ops-preview"><a class="ops-preview-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">打开已上传文件</a></div>`
-                      : ref.path
-                        ? `<p class="ops-empty ops-empty--sm">已有路径，但未配置 PUBLIC_R2_BASE，无法预览。</p>`
-                        : `<p class="ops-empty ops-empty--sm">尚未上传文件。</p>`
-                  }
-                  <div class="ops-upload-panel">
-                    <input type="file" accept=".pdf,application/pdf" data-ref-upload="${i}" />
-                    <div class="ops-upload-status" id="ref-upload-status-${i}" hidden></div>
-                    <div class="ops-progress" id="ref-progress-${i}" hidden>
-                      <div class="ops-progress-bar" id="ref-progress-bar-${i}"></div>
-                    </div>
-                  </div>
-                  <div class="ops-tree-actions">
-                    <button type="button" class="btn ops-mini" data-del-ref="${i}" style="color:inherit;border-color:var(--line);">删除</button>
-                  </div>
-                </div>
-              </div>`;
-          })
-          .join('')
-      : '<p class="ops-empty">暂无参考资料，请添加。</p>';
-
-    $('add-ref')?.addEventListener('click', () => {
-      refs.push({
-        id: uid('ref'),
-        title: `新资料 ${refs.length + 1}`,
-        meta: '',
-        path: '',
-      });
-      setDirty(true);
-      renderReferencesView();
-    });
-
-    box.querySelectorAll('[data-ref]').forEach((input) => {
-      input.addEventListener('input', () => {
-        const [i, field] = input.dataset.ref.split(':');
-        refs[Number(i)][field] = input.value;
-        setDirty(true);
-      });
-    });
-
-    box.querySelectorAll('[data-del-ref]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const i = Number(btn.dataset.delRef);
-        if (!confirm('确定删除该参考资料？')) return;
-        refs.splice(i, 1);
+      $('add-ref')?.addEventListener('click', () => {
+        refs.push({
+          id: uid('ref'),
+          title: `新资料 ${refs.length + 1}`,
+          meta: '',
+          path: '',
+        });
+        refsEditIndex = refs.length - 1;
         setDirty(true);
         renderReferencesView();
       });
+      box.querySelectorAll('[data-edit-ref]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          refsEditIndex = Number(btn.dataset.editRef);
+          renderReferencesView();
+        });
+      });
+      updateContextHeader();
+      return;
+    }
+
+    const i = refsEditIndex;
+    const ref = refs[i];
+    const url = assetUrl(ref.path);
+
+    editor.innerHTML = `
+      <div class="ops-row">
+        <button type="button" class="btn ops-mini" id="back-ref-list" style="color:inherit;border-color:var(--line);">← 返回列表</button>
+        <button type="button" class="btn ops-mini" id="del-ref" style="color:inherit;border-color:var(--line);">删除</button>
+      </div>
+      <p class="ops-label">编辑书籍</p>
+      <label class="ops-field">标题<input id="ref-title" value="${escapeHtml(ref.title || '')}" /></label>
+      <label class="ops-field">说明 / 作者<input id="ref-meta" value="${escapeHtml(ref.meta || '')}" /></label>
+      <label class="ops-field">文件路径<input id="ref-path" value="${escapeHtml(ref.path || '')}" /></label>
+      ${
+        ref.path && url
+          ? `<div class="ops-preview"><a class="ops-preview-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">打开已上传文件</a></div>`
+          : ref.path
+            ? `<p class="ops-empty ops-empty--sm">已有路径，但未配置 PUBLIC_R2_BASE，无法预览。</p>`
+            : `<p class="ops-empty ops-empty--sm">尚未上传文件。</p>`
+      }
+      <div class="ops-upload-panel">
+        <input type="file" accept=".pdf,application/pdf" id="ref-upload" />
+        <div class="ops-upload-status" id="ref-upload-status" hidden></div>
+        <div class="ops-progress" id="ref-progress" hidden>
+          <div class="ops-progress-bar" id="ref-progress-bar"></div>
+        </div>
+      </div>
+    `;
+
+    $('back-ref-list')?.addEventListener('click', () => {
+      refsEditIndex = null;
+      renderReferencesView();
+    });
+    $('del-ref')?.addEventListener('click', () => {
+      if (!confirm('确定删除该参考资料？')) return;
+      refs.splice(i, 1);
+      refsEditIndex = null;
+      setDirty(true);
+      renderReferencesView();
+    });
+    $('ref-title')?.addEventListener('input', (e) => {
+      ref.title = e.target.value;
+      setDirty(true);
+      updateContextHeader();
+    });
+    $('ref-meta')?.addEventListener('input', (e) => {
+      ref.meta = e.target.value;
+      setDirty(true);
+    });
+    $('ref-path')?.addEventListener('input', (e) => {
+      ref.path = e.target.value;
+      setDirty(true);
     });
 
-    box.querySelectorAll('[data-ref-upload]').forEach((input) => {
-      input.addEventListener('change', async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        const i = Number(input.dataset.refUpload);
-        const ref = refs[i];
-        const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'pdf';
-        const safe =
-          file.name
-            .replace(/\.[^.]+$/, '')
-            .toLowerCase()
-            .replace(/[^a-z0-9\u4e00-\u9fff-]+/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '')
-            .slice(0, 48) || `book-${uid('b')}`;
-        const key = ref.path || `books/${safe}.${ext}`;
-        ref.path = key;
-        const status = $(`ref-upload-status-${i}`);
-        const progress = $(`ref-progress-${i}`);
-        const bar = $(`ref-progress-bar-${i}`);
-        try {
-          if (status) {
-            status.hidden = false;
-            status.textContent = `上传中：${file.name}`;
-            status.classList.remove('is-error');
-            status.classList.add('is-ok');
-          }
-          if (progress && bar) {
-            progress.hidden = false;
-            bar.style.width = '0%';
-          }
-          showMsg(saveMsg, '正在上传参考资料…', true);
-          await uploadFile(key, file, (done, total) => {
-            const pct = Math.min(100, Math.round((done / total) * 100));
-            if (status) status.textContent = `上传中 ${pct}% · ${file.name}`;
-            if (bar) bar.style.width = `${pct}%`;
-          });
-          if (status) status.textContent = `上传完成：${key}`;
-          if (progress) progress.hidden = true;
-          showMsg(saveMsg, '上传完成，正在自动保存…', true);
-          await saveCatalog({ reason: `参考资料已上传并保存：${key}` });
-          renderReferencesView();
-        } catch (e) {
-          if (status) {
-            status.hidden = false;
-            status.textContent = String(e.message || e);
-            status.classList.add('is-error');
-            status.classList.remove('is-ok');
-          }
-          if (progress) progress.hidden = true;
-          showMsg(saveMsg, String(e.message || e), false);
-        } finally {
-          input.value = '';
+    $('ref-upload')?.addEventListener('change', async () => {
+      const input = $('ref-upload');
+      const file = input?.files?.[0];
+      if (!file) return;
+      const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'pdf';
+      const safe =
+        file.name
+          .replace(/\.[^.]+$/, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9\u4e00-\u9fff-]+/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 48) || `book-${uid('b')}`;
+      const key = ref.path || `books/${safe}.${ext}`;
+      ref.path = key;
+      const status = $('ref-upload-status');
+      const progress = $('ref-progress');
+      const bar = $('ref-progress-bar');
+      try {
+        if (status) {
+          status.hidden = false;
+          status.textContent = `上传中：${file.name}`;
+          status.classList.remove('is-error');
+          status.classList.add('is-ok');
         }
-      });
+        if (progress && bar) {
+          progress.hidden = false;
+          bar.style.width = '0%';
+        }
+        showMsg(saveMsg, '正在上传参考资料…', true);
+        await uploadFile(key, file, (done, total) => {
+          const pct = Math.min(100, Math.round((done / total) * 100));
+          if (status) status.textContent = `上传中 ${pct}% · ${file.name}`;
+          if (bar) bar.style.width = `${pct}%`;
+        });
+        if (status) status.textContent = `上传完成：${key}`;
+        if (progress) progress.hidden = true;
+        showMsg(saveMsg, '上传完成，正在自动保存…', true);
+        await saveCatalog({ reason: `参考资料已上传并保存：${key}` });
+        renderReferencesView();
+      } catch (e) {
+        if (status) {
+          status.hidden = false;
+          status.textContent = String(e.message || e);
+          status.classList.add('is-error');
+          status.classList.remove('is-ok');
+        }
+        if (progress) progress.hidden = true;
+        showMsg(saveMsg, String(e.message || e), false);
+      } finally {
+        if (input) input.value = '';
+      }
     });
+    updateContextHeader();
   }
 
   function renderStructureView(mod) {
@@ -618,6 +1207,35 @@
           <option value="coming" ${mod.status === 'coming' ? 'selected' : ''}>即将开放</option>
         </select>
       </label>
+      ${(() => {
+        const place = resolveOpsModSection(mod);
+        const secVal = mod.section === '未归类' ? '未归类' : place.section || '未归类';
+        const groupVal = place.group || '';
+        const secOpts = ['未归类', ...OPS_SECTION_TITLES]
+          .map(
+            (t) =>
+              `<option value="${escapeHtml(t)}" ${secVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`,
+          )
+          .join('');
+        const groupOpts = ['', ...OPS_PRO_GROUPS]
+          .map(
+            (t) =>
+              `<option value="${escapeHtml(t)}" ${groupVal === t ? 'selected' : ''}>${
+                t ? escapeHtml(t) : '（无子组）'
+              }</option>`,
+          )
+          .join('');
+        return `
+      <label class="ops-field">学修分区
+        <select data-mod="section" id="mod-section">${secOpts}</select>
+      </label>
+      <label class="ops-field" id="mod-section-group-wrap" ${
+        secVal === '专业课' ? '' : 'hidden'
+      }>专业课子组
+        <select data-mod="sectionGroup" id="mod-section-group">${groupOpts}</select>
+      </label>
+      <p class="ops-hint">分区决定前台学修页出现位置；选「未归类」则出现在「未归类」。</p>`;
+      })()}
       <label class="ops-field">摘要<textarea data-mod="summary" rows="3">${escapeHtml(mod.summary || '')}</textarea></label>
 
       <div class="ops-row">
@@ -661,16 +1279,25 @@
         if (key === 'status') {
           mod.statusLabel = statusLabelFor(input.value);
         }
-        // 简称/简介不再单独配置，与标题、摘要保持一致即可
         if (key === 'title') mod.shortTitle = input.value;
         if (key === 'summary') mod.intro = input.value;
+        if (key === 'section') {
+          if (input.value !== '专业课') mod.sectionGroup = '';
+          const wrap = $('mod-section-group-wrap');
+          if (wrap) wrap.hidden = input.value !== '专业课';
+          const gSel = $('mod-section-group');
+          if (gSel && input.value !== '专业课') gSel.value = '';
+        }
         setDirty(true);
-        if (key === 'title' || key === 'status') renderModuleList();
+        if (key === 'title' || key === 'status' || key === 'section' || key === 'sectionGroup') {
+          renderModuleList();
+        }
+        if (key === 'section') updateContextHeader();
       };
       input.addEventListener('change', onChange);
       input.addEventListener('input', () => {
         const key = input.getAttribute('data-mod');
-        if (key === 'status') return;
+        if (key === 'status' || key === 'section' || key === 'sectionGroup') return;
         mod[key] = input.value;
         if (key === 'title') mod.shortTitle = input.value;
         if (key === 'summary') mod.intro = input.value;
@@ -1246,31 +1873,51 @@
   });
 
   $('logout-btn')?.addEventListener('click', async () => {
-    if (dirty && !confirm('有未保存修改，确定退出？')) return;
+    if (anyDirty() && !confirm('有未保存修改，确定退出？')) return;
     await api('/api/logout', { method: 'POST' });
     await ensureSession();
   });
 
   $('btn-reload')?.addEventListener('click', () => {
+    if (sideMode === 'articles') {
+      if (articlesDirty && !confirm('好文有未保存修改，重新加载将丢失。继续？')) return;
+      loadArticles().catch((e) => showMsg(saveMsg, e.message, false));
+      return;
+    }
     if (dirty && !confirm('有未保存修改，重新加载将丢失。继续？')) return;
     loadCatalog().catch((e) => showMsg(saveMsg, e.message, false));
   });
 
   $('btn-save')?.addEventListener('click', () => {
+    if (sideMode === 'articles') {
+      saveArticles().catch(() => {});
+      return;
+    }
     saveCatalog().catch(() => {});
   });
 
-  $('btn-cards-enqueue')?.addEventListener('click', () => {
-    cardsAction({ action: 'enqueue-missing', priority: 'offpeak' }).catch(() => {});
+  $('btn-passages-warm')?.addEventListener('click', () => {
+    warmPassagesBatch().catch(() => {});
   });
-  $('btn-cards-process')?.addEventListener('click', () => {
-    cardsAction({ action: 'process', force: true, limit: 2 }).catch(() => {});
+  $('btn-passages-refresh')?.addEventListener('click', () => {
+    refreshPassagesStatus().catch(() => {});
   });
-  $('btn-cards-force-all')?.addEventListener('click', () => {
-    forceGenerateAll().catch(() => {});
+  $('btn-passages-toggle')?.addEventListener('click', () => {
+    const body = $('passages-body');
+    const btn = $('btn-passages-toggle');
+    const hint = btn?.querySelector('.ops-cards-toggle__hint');
+    if (!body || !btn) return;
+    const open = body.hidden;
+    body.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (hint) hint.textContent = open ? '收起' : '展开';
   });
-  $('btn-cards-refresh')?.addEventListener('click', () => {
-    refreshCardsStatus().catch(() => {});
+
+  document.querySelectorAll('.ops-ws-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.ws || 'module';
+      switchWorkspace(mode);
+    });
   });
 
   $('btn-add-module')?.addEventListener('click', () => {
@@ -1278,11 +1925,17 @@
       showMsg(saveMsg, '请先登录并加载目录', false);
       return;
     }
+    if (sideMode !== 'module') {
+      sideMode = 'module';
+    }
     addModule();
+    collapsedNavGroups.delete('其他');
+    renderModuleList();
+    updateWorkspaceChrome();
   });
 
   window.addEventListener('beforeunload', (e) => {
-    if (!dirty) return;
+    if (!anyDirty()) return;
     e.preventDefault();
     e.returnValue = '';
   });

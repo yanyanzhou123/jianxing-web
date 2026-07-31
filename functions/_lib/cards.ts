@@ -390,9 +390,13 @@ export function cardToIndexText(card: RetrievalCard): string {
     .join('\n');
 }
 
-/** 用检索卡字段对问题做本地粗排（避免把全部课硬塞给模型） */
-export function scoreCardAgainstQuestion(card: RetrievalCard, question: string): number {
-  const q = String(question || '').toLowerCase();
+/** 用检索卡字段（及可选正文）对问题做本地粗排 */
+export function scoreCardAgainstQuestion(
+  card: RetrievalCard,
+  question: string,
+  fullText?: string,
+): number {
+  const q = String(question || '').toLowerCase().replace(/\s+/g, '');
   const qChars = new Set([...q].filter((c) => /[\u4e00-\u9fff]/.test(c)));
   const bigrams = new Set<string>();
   for (let i = 0; i < q.length - 1; i++) {
@@ -430,9 +434,24 @@ export function scoreCardAgainstQuestion(card: RetrievalCard, question: string):
     for (const ch of qChars) {
       if (t.includes(ch)) hit += 0.15;
     }
-    // 整句问题出现在可答列表中
-    if (bag.w >= 4 && q.length >= 4 && t.includes(q.replace(/\s+/g, ''))) hit += 20;
+    // 整句/整词问题出现在可答、主题等字段
+    if (bag.w >= 4 && q.length >= 2 && t.includes(q)) hit += 20;
     score += hit * bag.w;
+  }
+
+  // 正文原词命中：强加权（解决卡字段未写全、但课里大段在讲的情况）
+  if (fullText && q.length >= 2) {
+    const ft = fullText;
+    if (ft.includes(q)) {
+      score += 150;
+      let occ = 0;
+      let pos = 0;
+      while ((pos = ft.indexOf(q, pos)) >= 0 && occ < 8) {
+        occ++;
+        pos += q.length;
+      }
+      score += occ * 30;
+    }
   }
 
   // notCover 命中则降权
@@ -448,107 +467,141 @@ export function scoreCardAgainstQuestion(card: RetrievalCard, question: string):
   return score;
 }
 
-/** 根据检索卡挑选更贴题的原文片段（短、核心） */
+/** 在正文中定位问题相关段落，尽量扩到 excerptMax（不返回卡摘要冒充原文） */
 export function pickExcerptsFromCard(
   fullText: string,
   card: RetrievalCard | undefined,
   question: string,
   max = 1,
-  excerptMax = 160,
+  excerptMax = 500,
 ): string[] {
-  const trim = (s: string) => {
+  const text = String(fullText || '');
+  if (!text.trim()) return [];
+
+  const q = String(question || '').replace(/\s+/g, '').trim();
+
+  const snapTrim = (s: string) => {
     let t = String(s || '').replace(/\s+/g, ' ').trim();
-    // 尽量在句号处截断，避免半句话
     if (t.length > excerptMax) {
       const cut = t.slice(0, excerptMax);
-      const stop = Math.max(cut.lastIndexOf('。'), cut.lastIndexOf('！'), cut.lastIndexOf('？'), cut.lastIndexOf('；'));
-      t = (stop > excerptMax * 0.4 ? cut.slice(0, stop + 1) : cut.trim()) + (stop > excerptMax * 0.4 ? '' : '…');
+      const stop = Math.max(
+        cut.lastIndexOf('。'),
+        cut.lastIndexOf('！'),
+        cut.lastIndexOf('？'),
+        cut.lastIndexOf('；'),
+        cut.lastIndexOf('\n'),
+      );
+      t = (stop > excerptMax * 0.35 ? cut.slice(0, stop + 1) : cut.trim()) + (stop > excerptMax * 0.35 ? '' : '…');
     }
     return t;
   };
 
-  const text = String(fullText || '');
-  if (!text.trim()) return [];
+  /** 以锚点为中心向两边扩到约 excerptMax，并尽量落在句号边界 */
+  const expandAround = (idx: number, needleLen = 2): string => {
+    if (idx < 0) return '';
+    const target = Math.max(120, excerptMax);
+    let start = idx;
+    let end = Math.min(text.length, idx + Math.max(needleLen, 8));
 
-  const q = String(question || '');
-  const qBigrams: string[] = [];
-  for (let i = 0; i < q.length - 1; i++) {
-    const a = q[i];
-    const b = q[i + 1];
-    if (/[\u4e00-\u9fff]/.test(a) && /[\u4e00-\u9fff]/.test(b)) qBigrams.push(a + b);
+    // 先尽量向前找到段落/句首
+    const backLimit = Math.max(0, idx - Math.floor(target * 0.35));
+    for (let i = idx - 1; i >= backLimit; i--) {
+      start = i;
+      if (text[i] === '\n' || text[i] === '。' || text[i] === '！' || text[i] === '？') {
+        start = i + 1;
+        break;
+      }
+    }
+
+    end = Math.min(text.length, start + target);
+    // 向后落到句号
+    if (end < text.length) {
+      const slice = text.slice(start, Math.min(text.length, start + target + 80));
+      const stop = Math.max(slice.lastIndexOf('。'), slice.lastIndexOf('！'), slice.lastIndexOf('？'));
+      if (stop > target * 0.4) end = start + stop + 1;
+    }
+
+    // 若仍偏短且后面还有字，再补一点
+    if (end - start < Math.min(target, text.length) && end < text.length) {
+      end = Math.min(text.length, start + target);
+    }
+
+    return snapTrim(text.slice(start, end));
+  };
+
+  const scoreAt = (idx: number) => {
+    if (idx < 0) return -1;
+    // 越靠前略加分；完整问词命中额外加分
+    let s = 1000 - Math.min(idx, 900);
+    if (q.length >= 2 && text.slice(idx, idx + q.length) === q) s += 500;
+    return s;
+  };
+
+  const candidates: { idx: number; len: number; score: number }[] = [];
+
+  // 1) 正文整词/整句命中（最优先）
+  if (q.length >= 2) {
+    let pos = 0;
+    while ((pos = text.indexOf(q, pos)) >= 0) {
+      candidates.push({ idx: pos, len: q.length, score: scoreAt(pos) + 2000 });
+      pos += q.length;
+      if (candidates.length > 12) break;
+    }
   }
 
-  const scoreSnippet = (s: string) => {
-    const low = s.toLowerCase();
-    let hit = 0;
-    for (const bg of qBigrams) if (low.includes(bg)) hit += 2;
-    return hit;
-  };
+  // 2) 问题里较长的中文片段（≥2）
+  const parts = String(question || '').match(/[\u4e00-\u9fff]{2,}/g) || [];
+  const uniqParts = [...new Set(parts)].sort((a, b) => b.length - a.length);
+  for (const p of uniqParts.slice(0, 6)) {
+    let pos = 0;
+    let n = 0;
+    while ((pos = text.indexOf(p, pos)) >= 0 && n < 4) {
+      candidates.push({ idx: pos, len: p.length, score: scoreAt(pos) + p.length * 10 });
+      pos += p.length;
+      n++;
+    }
+  }
+
+  // 3) 卡内 quotes 只作「定位针」，不直接当原文展示
+  for (const qot of card?.quotes || []) {
+    const needle = String(qot || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    if (needle.length < 4) continue;
+    const idx = text.indexOf(needle);
+    if (idx >= 0) {
+      const bonus = q && String(qot).includes(q) ? 800 : 0;
+      candidates.push({ idx, len: needle.length, score: scoreAt(idx) + 200 + bonus });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
 
   const out: string[] = [];
-  const pushUnique = (s: string) => {
-    const t = trim(s);
-    if (!t) return;
-    if (out.some((x) => x.slice(0, 24) === t.slice(0, 24))) return;
-    out.push(t);
-  };
-
-  // 1) 优先：卡内 quotes（通常已是核心句），只取高相关
-  const quotes = [...(card?.quotes || [])]
-    .map((qot) => ({ qot, score: scoreSnippet(qot) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || a.qot.length - b.qot.length);
-  for (const { qot } of quotes) {
+  for (const c of candidates) {
     if (out.length >= max) break;
-    // 正文定位后只取该句附近，少带上下文
-    const needle = qot.slice(0, Math.min(20, qot.length));
-    const idx = needle ? text.indexOf(needle) : -1;
-    if (idx >= 0) {
-      const start = Math.max(0, idx - 8);
-      const end = Math.min(text.length, idx + Math.min(qot.length + 20, excerptMax + 40));
-      pushUnique(text.slice(start, end));
-    } else {
-      pushUnique(qot);
-    }
+    const ex = expandAround(c.idx, c.len);
+    if (!ex) continue;
+    if (out.some((x) => x.slice(0, 32) === ex.slice(0, 32))) continue;
+    out.push(ex);
   }
 
-  // 2) 其次：分段 focus / heading，仍要求有字面重合
-  if (out.length < max && card?.sections?.length) {
-    const secs = [...card.sections]
-      .map((s) => ({
-        s,
-        score: scoreSnippet(
-          `${s.heading} ${s.focus} ${(s.keywords || []).join('')} ${(s.canAnswer || []).join('')}`,
-        ),
-      }))
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score);
-    for (const { s } of secs) {
-      if (out.length >= max) break;
-      const focus = String(s.focus || '').trim();
-      if (focus) {
-        pushUnique(focus);
-        continue;
-      }
-      const needle = (s.heading || '').slice(0, 12);
-      if (!needle) continue;
-      const idx = text.indexOf(needle);
-      if (idx < 0) continue;
-      pushUnique(text.slice(idx, Math.min(text.length, idx + excerptMax)));
+  // 4) 再退：滑窗找命中最多的 excerptMax 窗口（仍取正文）
+  if (!out.length) {
+    const win = Math.min(excerptMax, 500);
+    const qBigrams: string[] = [];
+    for (let i = 0; i < q.length - 1; i++) {
+      if (/[\u4e00-\u9fff]/.test(q[i]) && /[\u4e00-\u9fff]/.test(q[i + 1])) qBigrams.push(q.slice(i, i + 2));
     }
-  }
-
-  // 3) 再退：正文里找最高分的短窗口（约 excerptMax 字）
-  if (!out.length && text.trim()) {
-    const win = Math.min(excerptMax, 140);
     let best = { score: -1, slice: '' };
-    for (let i = 0; i < text.length; i += Math.max(40, Math.floor(win / 2))) {
+    const step = Math.max(80, Math.floor(win / 3));
+    for (let i = 0; i < text.length; i += step) {
       const slice = text.slice(i, i + win);
-      const score = scoreSnippet(slice);
-      if (score > best.score) best = { score, slice };
+      let hit = 0;
+      for (const bg of qBigrams) if (slice.includes(bg)) hit += 2;
+      if (q.length >= 2 && slice.includes(q)) hit += 50;
+      if (hit > best.score) best = { score: hit, slice };
       if (i + win >= text.length) break;
     }
-    if (best.score > 0) pushUnique(best.slice);
+    if (best.score > 0) out.push(snapTrim(best.slice));
   }
 
   return out;

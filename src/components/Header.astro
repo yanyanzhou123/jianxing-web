@@ -9,16 +9,16 @@ const { current } = Astro.props;
 
 const links = [
   { href: '/', label: '首页' },
-  { href: '/app/', label: '学习' },
   { href: '/xuexiu/', label: '学修' },
+  { href: '/yantao/', label: '研讨' },
   { href: '/reference/', label: '参考资料' },
   { href: '/download/', label: '下载' },
 ];
 
 function isActive(href: string) {
   if (href === '/') return current === '/';
-  if (href === '/app/') {
-    return current === '/app' || current.startsWith('/app/');
+  if (href === '/yantao/') {
+    return current === '/yantao' || current.startsWith('/yantao/');
   }
   if (href === '/xuexiu/') {
     return (

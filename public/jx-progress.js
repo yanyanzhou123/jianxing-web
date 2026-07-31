@@ -1,5 +1,19 @@
 (() => {
+  function isNativeApp() {
+    try {
+      const cap = window.Capacitor;
+      if (!cap) return false;
+      if (typeof cap.isNativePlatform === 'function') return !!cap.isNativePlatform();
+      const p = typeof cap.getPlatform === 'function' ? cap.getPlatform() : '';
+      return p === 'ios' || p === 'android';
+    } catch {
+      return false;
+    }
+  }
+
   window.JXProgress = {
+    isNativeApp,
+
     async me() {
       const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
       if (res.status === 401) return null;
@@ -33,7 +47,7 @@
       return data;
     },
 
-    /** 在学习页挂载：恢复进度、节流上报、标为学完 */
+    /** 在学习页挂载：仅 App 端展示并同步；PC 网页不展示登录/进度相关 UI */
     async attach(opts) {
       const {
         moduleSlug,
@@ -42,11 +56,18 @@
         root,
         onStatus,
       } = opts;
+
+      if (!isNativeApp()) {
+        if (root) {
+          root.innerHTML = '';
+          root.hidden = true;
+        }
+        return { user: null, skipped: true };
+      }
+
       const user = await this.me();
       if (!user) {
-        if (root) {
-          root.innerHTML = `<p class="learn-progress-bar__hint">登录后可自动记录进度。<a href="/app/">去学习中心</a></p>`;
-        }
+        if (root) root.innerHTML = '';
         return { user: null };
       }
 

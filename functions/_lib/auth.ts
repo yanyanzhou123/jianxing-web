@@ -8,6 +8,10 @@ export interface Env {
   DB?: D1Database;
   /** 学员会话签名密钥；未设时回退 OPS_PASSWORD */
   APP_SESSION_SECRET?: string;
+  /** Workers AI（bge-m3 等） */
+  AI?: Ai;
+  /** 段落向量索引 */
+  VECTORIZE?: VectorizeIndex;
 }
 
 const COOKIE = 'jx_ops';

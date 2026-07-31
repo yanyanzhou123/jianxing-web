@@ -15,8 +15,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </article>
 
-  <script src="/jx-catalog.js?v=20260725m" defer></script>
-  <script src="/jx-progress.js?v=20260729a" defer></script>
+  <script src="/jx-catalog.js?v=20260731e" defer></script>
+  <script src="/jx-progress.js?v=20260730g" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(location.search);
@@ -67,13 +67,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       let tab = params.get('tab') || '';
       if (!allowed.includes(tab)) tab = 'text';
 
-      // 若 URL 未指定 tab，尝试用已保存进度的 lastTab
+      // 若 URL 未指定 tab，仅 App 端用已保存进度的 lastTab
       let progressPrefetch = null;
       try {
         for (let i = 0; i < 40 && typeof JXProgress?.me !== 'function'; i++) {
           await new Promise((r) => setTimeout(r, 40));
         }
-        if (typeof JXProgress?.me === 'function' && (await JXProgress.me())) {
+        if (
+          typeof JXProgress?.isNativeApp === 'function' &&
+          JXProgress.isNativeApp() &&
+          typeof JXProgress?.me === 'function' &&
+          (await JXProgress.me())
+        ) {
           progressPrefetch = await JXProgress.getOne(moduleSlug, id);
           if (!params.get('tab') && progressPrefetch?.lastTab && allowed.includes(progressPrefetch.lastTab)) {
             tab = progressPrefetch.lastTab;

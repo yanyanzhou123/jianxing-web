@@ -1,12 +1,6 @@
 import { type Env, json, requireAuth } from '../_lib/auth';
-import {
-  enqueueLessons,
-  extractLessonsFromCatalog,
-  loadCardStore,
-  loadQueue,
-  saveQueue,
-  withHashes,
-} from '../_lib/cards';
+import { extractLessonsFromCatalog, withHashes } from '../_lib/cards';
+import { processPassageRebuild } from '../_lib/passages';
 
 const CATALOG_KEY = 'config/catalog.json';
 const BACKUP_PREFIX = 'config/backups/';
@@ -145,6 +139,14 @@ function migrateCatalog(data: any) {
       references: [],
       chapters,
     };
+    // 学修分区（运营可选）；「未归类」需显式保留；未设置时前台回退旧 slug 名单
+    if (mod.section != null && String(mod.section).trim() !== '') {
+      out.section = String(mod.section).trim();
+    }
+    if (out.section && out.section !== '未归类') {
+      const sg = String(mod.sectionGroup || '').trim();
+      if (sg) out.sectionGroup = sg;
+    }
     if (mod.track) out.track = mod.track;
     if (mod.pathOrder != null && mod.pathOrder !== '') {
       out.pathOrder = Number(mod.pathOrder) || mod.pathOrder;
@@ -183,6 +185,49 @@ async function readCatalog(env: Env, request: Request): Promise<any> {
   return migrateCatalog(raw);
 }
 
+/** 选课/考问用：是否有足够正文（排除「（占位）」等空壳） */
+function isSubstantialLessonText(text: string, hasSegText = false): boolean {
+  const t = String(text || '').trim();
+  if (/[（(]\s*占位\s*[）)]/.test(t)) return false;
+  if (/^(待补充|暂无正文|占位|内容待上传)/.test(t)) return false;
+  if (t.length >= 80) return true;
+  // 极短文且无分段正文：视为不可考
+  if (hasSegText && t.length >= 40) return true;
+  return false;
+}
+
+/** 选课列表用：去掉正文，体积小很多 */
+function liteCatalog(data: any) {
+  return {
+    version: data?.version || 4,
+    rev: Number(data?.rev) || 0,
+    modules: (data?.modules || []).map((mod: any) => ({
+      slug: mod.slug,
+      title: mod.title,
+      status: mod.status,
+      chapters: (mod.chapters || []).map((ch: any) => ({
+        title: ch.title,
+        lessons: (ch.lessons || []).map((les: any) => {
+          const text = typeof les.text === 'string' ? les.text.trim() : '';
+          const segText = Array.isArray(les.segments)
+            ? les.segments
+                .map((s: any) => String(s?.text || '').trim())
+                .filter(Boolean)
+                .join('\n\n')
+            : '';
+          const hasSeg = segText.length > 0;
+          const combined = text || segText;
+          return {
+            slug: les.slug,
+            title: les.title,
+            hasText: isSubstantialLessonText(combined, hasSeg),
+          };
+        }),
+      })),
+    })),
+  };
+}
+
 async function pruneBackups(env: Env) {
   const listed = await env.FILES.list({ prefix: BACKUP_PREFIX, limit: 1000 });
   const objs = (listed.objects || []).slice().sort((a, b) => a.key.localeCompare(b.key));
@@ -207,7 +252,13 @@ async function backupCurrent(env: Env, raw: unknown, rev: number) {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const data = await readCatalog(context.env, context.request);
-    return json(data);
+    const lite = new URL(context.request.url).searchParams.get('lite') === '1';
+    const body = lite ? liteCatalog(data) : data;
+    const res = json(body);
+    if (lite) {
+      res.headers.set('Cache-Control', 'public, max-age=60');
+    }
+    return res;
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
@@ -300,28 +351,15 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
   });
 
-  // 正文变更的课默认排入空闲时段检索卡队列（12–14 / 18–次日9 北京时间）
-  let cardsQueued = 0;
+  // 正文变更后增量重建段落向量索引（异步）；检索卡已停用
   try {
-    const prevLessons = currentRaw
-      ? await withHashes(extractLessonsFromCatalog(migrateCatalog(currentRaw)))
-      : [];
-    const nextLessons = await withHashes(extractLessonsFromCatalog(migrated));
-    const prevMap = new Map(prevLessons.map((l) => [l.lessonId, l.sourceHash]));
-    const store = await loadCardStore(context.env);
-    const changed = nextLessons.filter((l) => {
-      const oldHash = prevMap.get(l.lessonId);
-      if (oldHash !== l.sourceHash) return true;
-      const card = store.cards[l.lessonId];
-      return !card || card.sourceHash !== l.sourceHash;
-    });
-    if (changed.length) {
-      const queue = await loadQueue(context.env);
-      cardsQueued = enqueueLessons(queue, changed, 'offpeak');
-      await saveQueue(context.env, queue);
+    if (context.env.AI && context.env.VECTORIZE) {
+      context.waitUntil(
+        processPassageRebuild(context.env, migrated, { limit: 8 }).catch(() => null),
+      );
     }
   } catch {
-    // 排队失败不影响目录保存
+    // ignore
   }
 
   return json({
@@ -329,6 +367,5 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     rev: migrated.rev,
     lessonCount: newLessons,
     backedUp: currentRaw != null,
-    cardsQueued,
   });
 };

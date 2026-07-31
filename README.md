@@ -56,14 +56,49 @@ jingtu.jianxing.win   ← 产品线 2：净土修学（分叉部署，源码不�
 
 ## 版本
 
+**v1.3.0**（2026-07-31）
+
+相对 v1.2.1 的主要变化（换电脑开发请先读本节）：
+
+### 研讨 `/yantao/`
+- **堪布考问**：按课表选题考问（DeepSeek）；占位课不可考
+- **佛学圆桌**：多角色研讨对话
+- API：`/api/yantao/exam`、`/api/yantao/seminar`；前台脚本 `public/yantao-*.js`
+
+### 参考资料拆分
+- 前台分为 **参考书籍**（`/reference/books/`）与 **公众号好文**（`/reference/articles/`）
+- 参考书籍仍在课表 `catalog.references`；公众号好文独立存 R2 `config/article-collections.json`，经 `/api/articles` 读写
+- 「见行选读」前台文案改为 **见行选修**；书籍材料不再挂在学修楼梯区
+
+### 学修分区（运营可选）
+- 模块可设 `section`（基础课 / 公共学修 / 专业课 / 实修篇 / 见行选修 / 未归类）与可选 `sectionGroup`（专业课子组）
+- 前台按分区字段渲染；未设置时回退旧 slug 名单
+- 运营侧栏按分区分组；未归类模块会出现在「未归类 / 其他」
+
+### 运营后台 `/ops/`
+- 顶部工作区：**学修 / 参考书籍 / 公众号好文**（好文单独「保存好文」）
+- 粘性保存条、模块搜索与状态筛选、问答索引面板可折叠
+- 运营简明说明：[运营说明.md](./运营说明.md)（另有 `运营说明.pdf` 可转发）
+
+### 见行解惑与索引
+- 课文段落向量索引（Cloudflare AI + Vectorize `jianxing-passages`）；保存课文后可增量重建
+- 检索卡选题、相关度门槛与摘录长度优化（见既有 ask / cards 逻辑）
+- `wrangler.toml` 增加 `[ai]`、`[[vectorize]]` 绑定
+
+### 学员与 App
+- 学习中心 `/app/` + D1 进度、安卓 Capacitor（此前已上线，本版一并纳入版本说明）
+- PC 网页隐藏登录/进度入口（进度能力以 App / Capacitor 为主）
+
+### 工程
+- `package.json` 版本 **1.3.0**
+- 部署仍：`npm run deploy`（Pages 项目 `jianxing`，生产分支 `main`）
+
 **v1.2.1**（2026-07-28）
 
 - **学修问答**：全站右下角悬浮「问」按钮（运营页除外）；按课本文字检索后调用 DeepSeek 作答，并附出处链接
 - 学习页提问时优先检索当前模块；约 8 次/分钟限流
 - 需配置 Cloudflare Pages Secret：`DEEPSEEK_API_KEY`
 - `package.json` 版本 **1.2.1**
-
-**后续（未单独打 tag，已在主站）**：检索卡厚卡选题与原文摘录优化；学员学习中心 `/app/` + D1 进度；安卓 Capacitor 工程与 APK 工作流。
 
 **v1.2.0**（2026-07-25）
 
@@ -127,15 +162,28 @@ jingtu.jianxing.win   ← 产品线 2：净土修学（分叉部署，源码不�
 ## 仓库结构（要点）
 
 ```text
-src/pages/          前台页面（首页、学修、学习页、/app 学习中心、参考资料、下载、ops）
-src/data/           站点信息与类型
-public/ops-app.js   运营后台逻辑
-public/jx-catalog.js 前台目录加载
-public/jx-ask.js    见行解惑
-public/jx-app.js    学习中心（账号进度）
-android/            Capacitor 安卓工程
-functions/api/      auth / progress / ask / cards / catalog / upload* 等
+src/pages/              前台：首页、学修、学习页、研讨、参考资料、/app、下载、ops
+src/pages/yantao/       研讨（考问 / 圆桌）
+src/pages/reference/    参考资料枢纽 + books / articles
+public/ops-app.js       运营后台逻辑
+public/jx-catalog.js    前台目录与学修分区
+public/jx-ask.js        见行解惑
+public/yantao-*.js      研讨前台
+android/                Capacitor 安卓工程
+functions/api/          auth / progress / ask / cards / catalog / articles / passages / yantao / upload*
+functions/_lib/         deepseek / passages / yantao / cards / auth 等
+运营说明.md / .pdf       给运营同学的简明手册
 ```
+
+## 内容存储（R2，不在 Git）
+
+| 路径 | 说明 |
+|------|------|
+| `config/catalog.json` | 学修模块 + 参考书籍 |
+| `config/article-collections.json` | 公众号好文集合 |
+| 媒体文件 | 课音频/视频、PDF 等 |
+
+模块可选字段：`section`、`sectionGroup`（学修分区）。
 
 ## 本地开发
 
@@ -164,19 +212,22 @@ npm run deploy
 
 PowerShell 若拦截 `npm` / `npx` 脚本，可用 `npm.cmd` / `npx.cmd`。
 
-## 内容模型（v4）
+## 内容模型（v4 + 分区字段）
 
 ```text
 catalog.json
-├── references[]          # 全站参考资料（与模块并列）
+├── references[]          # 参考书籍（PDF 等）
 └── modules[]             # 大模块
+    ├── section / sectionGroup   # 可选，学修分区
     └── chapters[]
         └── lessons[]     # text / audioPath / videoPath
+
+article-collections.json  # 公众号好文（独立于课表）
 ```
 
 ## 运营说明
 
-日常操作见 [运营说明.md](./运营说明.md)。  
+日常操作见 [运营说明.md](./运营说明.md)（PDF：`运营说明.pdf`）。  
 后台地址：https://jianxing.win/ops/（勿公开传播）  
 净土站运营入口：https://jingtu.jianxing.win/ops/（独立部署，勿与主站 ops 混用）
 
@@ -185,8 +236,10 @@ catalog.json
 ```bash
 git clone https://github.com/yanyanzhou123/jianxing-web.git
 cd jianxing-web
+git checkout master
 npm install
 cp .env.example .env   # 自行填入 PUBLIC_R2_BASE
 ```
 
-读完本 README 与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。线上目录与媒体在 R2，不在本仓库二进制里。
+读完本 README「版本 → v1.3.0」与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
+线上目录与媒体在 R2，不在本仓库二进制里。部署到 Cloudflare 需已登录 Wrangler，并具备 Pages / R2 / D1 / AI / Vectorize 权限。

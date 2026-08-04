@@ -1,4 +1,4 @@
----
+﻿---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
@@ -15,7 +15,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260731e" defer></script>
+  <script src="/jx-catalog.js?v=20260804b" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const body = document.getElementById('dl-body');
@@ -61,7 +61,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 })
                 .join('');
               return `<p class="group-label">${JX.escape(g.title)}</p>
-                <table class="download-table"><thead><tr><th>内容</th><th>格式</th><th>状态</th></tr></thead><tbody>${tr}</tbody></table>`;
+                <div class="download-scroll"><table class="download-table"><thead><tr><th>内容</th><th>格式</th><th>状态</th></tr></thead><tbody>${tr}</tbody></table></div>`;
             })
             .join('')
         : '<p class="note">暂无下载项。</p>';

@@ -1,10 +1,11 @@
----
+﻿---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="学修模块" description="学修模块课次目录">
   <div class="page-hero">
     <div class="wrap">
+      <a class="jx-back" href="/xuexiu/">← 返回学修</a>
       <p class="group-label" style="margin-top: 0;" id="mod-status">学修模块</p>
       <h1 id="mod-title">加载中…</h1>
       <p id="mod-intro"></p>
@@ -18,7 +19,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260731e" defer></script>
+  <script src="/jx-catalog.js?v=20260804d" defer></script>
   <script is:inline>
     document.addEventListener('DOMContentLoaded', async () => {
       const body = document.getElementById('mod-body');

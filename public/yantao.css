@@ -400,3 +400,68 @@
     margin-left: 3rem;
   }
 }
+
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
+  .yt-page {
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+  }
+
+  .yt-cards {
+    gap: 0.85rem;
+    margin-top: 1.25rem;
+  }
+
+  .yt-card {
+    padding: 1.15rem 1.05rem 1.25rem;
+    border-radius: 0.55rem;
+  }
+
+  .yt-card:hover {
+    transform: none;
+  }
+
+  .yt-card h2 {
+    font-size: 1.22rem;
+  }
+
+  .yt-btn,
+  .yt-btn--ghost {
+    min-height: 2.85rem;
+    padding: 0.65rem 1.1rem;
+  }
+
+  .yt-chip {
+    min-height: 2.45rem;
+    padding: 0.45rem 0.85rem;
+  }
+
+  .yt-select,
+  .yt-input,
+  .yt-textarea {
+    max-width: none;
+    font-size: 1rem;
+    padding: 0.7rem 0.75rem;
+  }
+
+  .yt-bubble {
+    font-size: 1rem;
+    line-height: 1.7;
+    padding: 0.85rem 0.95rem;
+  }
+
+  .yt-bubble--user {
+    margin-left: 0.75rem;
+  }
+
+  .yt-composer {
+    padding-top: 0.85rem;
+  }
+
+  .yt-actions {
+    gap: 0.5rem;
+  }
+
+  .yt-actions .yt-btn {
+    flex: 1 1 auto;
+  }
+}

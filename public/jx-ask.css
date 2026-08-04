@@ -209,16 +209,27 @@
   font-family: var(--font-sans, sans-serif);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
   .jx-ask-fab {
-    right: 0.75rem;
-    bottom: 0.9rem;
-    font-size: 0.82rem;
-    padding: 0.5rem 0.85rem;
+    right: max(0.7rem, env(safe-area-inset-right));
+    bottom: max(0.85rem, env(safe-area-inset-bottom));
+    font-size: 0.85rem;
+    padding: 0.55rem 0.95rem;
+    min-height: 2.85rem;
   }
   .jx-ask-panel {
-    right: 0.6rem;
-    bottom: 4.1rem;
-    width: min(26rem, calc(100vw - 1.2rem));
+    right: max(0.5rem, env(safe-area-inset-right));
+    left: max(0.5rem, env(safe-area-inset-left));
+    bottom: calc(4.2rem + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: min(70vh, 32rem);
   }
+}
+
+/* 学习页有目录 FAB（左下）时，问面板仍从右下升起，互不挡 */
+body:has(.learn-toc-fab) .jx-ask-fab {
+  z-index: 32;
+}
+body:has(.learn-toc-fab) .jx-ask-panel {
+  z-index: 33;
 }

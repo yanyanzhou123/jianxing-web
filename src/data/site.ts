@@ -10,6 +10,8 @@ export const site = {
     '见行修学平台。现含《轮回中的我》《大圆满前行-讲解》《见行佛光》《不离-讲解》四大模块。',
   footerNote:
     '本站内容仅供学修，禁止商业使用。文稿与音视频将陆续替换为正式版本。',
+  /** 工信部 ICP 备案号（页脚展示） */
+  icpNo: '京ICP备2026033921号-2',
 };
 
 export function assetUrl(path: string) {

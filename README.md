@@ -18,19 +18,16 @@ GitHub：https://github.com/yanyanzhou123/jianxing-web
 | 定位 | 公开学修站：课表、听读/音视频、运营后台、见行解惑（检索卡 + DeepSeek）等 |
 | 当前代码版本 | 见下方「版本」；`package.json` 以仓库为准 |
 
-### 2. 净土修学（子域名分站 · 另部署）
+### 2. 慧灯净土（独立站 · 另目录另部署）
 
 | 项 | 说明 |
 |------|------|
-| 域名 | https://jingtu.jianxing.win |
-| 品牌 | **净土修学**（首页文案：一心念佛，往生净土） |
-| 来源 | 由见行网站**复制/分叉**到子域名，内容与品牌改成净土向 |
+| 域名 | https://huidengjingtu.win （旧子域名 jingtu.jianxing.win 可过渡） |
+| 品牌 | **慧灯净土**（首页：一心念佛，往生净土） |
+| 源码 | 本地目录 `d:\cursor\净土网站`（由见行 v1.3.1 完整复制后改身份） |
+| Cloudflare Pages | 项目名 `jingtu` |
+| R2 / D1 | `jingtu-files` / `jingtu-app`（与见行隔离） |
 | 本仓库 | **不含**净土站源码；勿在本仓库直接改净土站 |
-| 线上特征（2026-07-29 核对） | 目录模型 **catalog v4**；前台 `jx-catalog.js?v=20260725d`；有 `/ops/`、`/api/catalog`；**无**见行解惑挂载、**无** `/app/` 学习中心导航；独立 R2 公开域 `pub-67be9c6f4a074660948f624ab1a41a1c.r2.dev` |
-| 模块（线上目录） | 念佛修法（open）、净土经典（coming）、净土修行（coming） |
-| 版本推断 | 大致对应见行 **v1.2.0 前后**（约 2026-07-25 工具链），**早于**主站 v1.2.1「学修问答 / 见行解惑」与后续自学 App；精确分叉提交未记在本仓库，以线上为准 |
-
-> 若找回净土站本地/Git 路径，应另建说明或独立仓库，并在本 README 补上链接。
 
 ### 3. 自学 App（安卓壳 · 挂主站学习中心）
 
@@ -43,9 +40,9 @@ GitHub：https://github.com/yanyanzhou123/jianxing-web
 | 注意 | App 打开的是**见行主站**学习中心，不是净土子域名 |
 
 ```text
-jianxing.win          ← 产品线 1：见行修学网页（本仓库）
-jingtu.jianxing.win   ← 产品线 2：净土修学（分叉部署，源码不在本仓库）
-安卓 App              ← 产品线 3：壳 + /app/（账号进度；内容走主站）
+jianxing.win            ← 产品线 1：见行修学网页（本仓库）
+huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，Pages 项目 jingtu）
+安卓 App                ← 产品线 3：壳 + /app/（账号进度；内容走主站）
 ```
 
 ---
@@ -55,6 +52,15 @@ jingtu.jianxing.win   ← 产品线 2：净土修学（分叉部署，源码不�
 面向学修内容的静态站点 + 运营可配置后台。目录与媒体存放于 Cloudflare R2，运营保存后前台刷新即可，无需为改内容重新部署。
 
 ## 版本
+
+**v1.3.2**（2026-08-05）
+
+相对 v1.3.1 的主要变化（备案与多域名）：
+
+- 页脚展示 ICP 备案号（`京ICP备2026033921号-2`），链至工信部备案查询
+- `jianxing.xin` 公安备案期间整站返回极简占位页（`public/beian/` + `functions/_middleware.ts`）；`.win` 不受影响；可用环境变量 `XIN_PLACEHOLDER=0` 关闭
+- README 产品线说明：净土站改为独立域名 **huidengjingtu.win** / 本地目录 `净土网站`
+- `package.json` 版本 **1.3.2**
 
 **v1.3.1**（2026-08-04）
 
@@ -260,5 +266,5 @@ npm install
 cp .env.example .env   # 自行填入 PUBLIC_R2_BASE
 ```
 
-读完本 README「版本 → v1.3.1」与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
+读完本 README「版本 → v1.3.2」与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
 线上目录与媒体在 R2，不在本仓库二进制里。部署到 Cloudflare 需已登录 Wrangler，并具备 Pages / R2 / D1 / AI / Vectorize 权限。

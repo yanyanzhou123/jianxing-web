@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="见行——个人站点，内容建设中。" />
+    <title>见行</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        --ink: #1a211e;
+        --ink-soft: #3a4540;
+        --jade: #2f5d4e;
+        --jade-deep: #1e3d34;
+        --dawn-top: #c5d4ce;
+        --dawn-mid: #e7eeea;
+        --dawn-bottom: #f7f9f8;
+        --line: rgba(26, 33, 30, 0.12);
+        --font-brand: 'Songti SC', 'STSong', 'SimSun', serif;
+        --font-serif: 'Songti SC', 'STSong', 'SimSun', serif;
+        --font-sans: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        color: var(--ink);
+        font-family: var(--font-serif);
+        font-size: 1.05rem;
+        line-height: 1.85;
+        background:
+          radial-gradient(1200px 600px at 80% -10%, rgba(47, 93, 78, 0.12), transparent 60%),
+          linear-gradient(180deg, var(--dawn-top) 0%, var(--dawn-mid) 28%, var(--dawn-bottom) 100%);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      main {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 2.5rem 1.25rem 2rem;
+      }
+      .hero {
+        text-align: center;
+        max-width: 28rem;
+      }
+      .brand {
+        margin: 0 0 1.1rem;
+        font-family: var(--font-brand);
+        font-size: clamp(2.4rem, 8vw, 3.4rem);
+        letter-spacing: 0.22em;
+        font-weight: 400;
+        color: var(--ink);
+      }
+      .lead {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: clamp(1rem, 2.6vw, 1.15rem);
+      }
+      .note {
+        margin: 1.25rem 0 0;
+        font-family: var(--font-sans);
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+        opacity: 0.9;
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        padding: 1.1rem 1.25rem 1.4rem;
+        text-align: center;
+        font-family: var(--font-sans);
+        font-size: 0.85rem;
+        color: var(--ink-soft);
+      }
+      footer p {
+        margin: 0.25rem 0;
+      }
+      footer a {
+        color: var(--jade-deep);
+        text-decoration: none;
+      }
+      footer a:hover {
+        color: var(--jade);
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero" aria-label="首页">
+        <h1 class="brand">见行</h1>
+        <p class="lead">个人站点，内容建设中。</p>
+        <p class="note">用于个人学习与记录，页面将陆续完善。</p>
+      </section>
+    </main>
+    <footer>
+      <p>© 2026 见行 · jianxing.xin</p>
+      <p>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer"
+          >京ICP备2026033921号-2</a
+        >
+      </p>
+    </footer>
+  </body>
+</html>

@@ -53,6 +53,14 @@ huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，P
 
 ## 版本
 
+**v1.3.3**（2026-08-07）
+
+相对 v1.3.2 的主要变化：
+
+- 公安备案通过后，`jianxing.xin` 恢复完整见行站（移除 `functions/_middleware.ts` 占位拦截）
+- 新增 `tools/r2-backup/` 本地 R2 整桶备份工具（脚本与说明；含密钥的 exe/源码不入库）
+- `package.json` 版本 **1.3.3**
+
 **v1.3.2**（2026-08-05）
 
 相对 v1.3.1 的主要变化（备案与多域名）：
@@ -266,5 +274,5 @@ npm install
 cp .env.example .env   # 自行填入 PUBLIC_R2_BASE
 ```
 
-读完本 README「版本 → v1.3.2」与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
+读完本 README「版本 → v1.3.3」与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
 线上目录与媒体在 R2，不在本仓库二进制里。部署到 Cloudflare 需已登录 Wrangler，并具备 Pages / R2 / D1 / AI / Vectorize 权限。

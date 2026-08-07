@@ -27,3 +27,12 @@ Thumbs.db
 # wrangler
 .wrangler/
 .dev.vars
+
+# R2 一键备份（密钥与便携工具，勿上传）
+tools/r2-backup/config.ini
+tools/r2-backup/rclone.conf
+tools/r2-backup/rclone.exe
+tools/r2-backup/rclone-tmp/
+tools/r2-backup/rclone-tmp.zip
+tools/r2-backup/BackupGui.cs
+tools/r2-backup/*.exe

@@ -1,0 +1,391 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="问题反馈" description="提交修行问题或系统问题反馈">
+  <div class="page-hero">
+    <div class="wrap">
+      <h1>问题反馈</h1>
+      <p>选择反馈类型后填写表单。我们会对您的邮箱保密，仅用于回复。</p>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top: 0;">
+    <div class="wrap content-width">
+      <!-- 类型选择 -->
+      <div class="fb-types" role="tablist" aria-label="反馈类型">
+        <button
+          type="button"
+          class="fb-type-card"
+          data-type="practice"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="fb-type-card__icon" aria-hidden="true">修</span>
+          <span class="fb-type-card__title">修行问题</span>
+          <span class="fb-type-card__desc">学修中的疑问、体会、请法等</span>
+        </button>
+        <button
+          type="button"
+          class="fb-type-card"
+          data-type="system"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="fb-type-card__icon" aria-hidden="true">系</span>
+          <span class="fb-type-card__title">系统问题</span>
+          <span class="fb-type-card__desc">网站访问、音视频播放、App 等技术问题</span>
+        </button>
+      </div>
+
+      <!-- 表单 -->
+      <form id="fb-form" class="fb-form" hidden>
+        <p class="fb-form__type">
+          当前类型：<strong id="fb-form-type-label">—</strong>
+          <button type="button" class="fb-form__change" id="fb-change-type">更换</button>
+        </p>
+
+        <label class="fb-field">
+          <span class="fb-field__label">内容</span>
+          <textarea
+            id="fb-content"
+            name="content"
+            class="fb-field__input fb-field__input--area"
+            placeholder="请详细描述您的问题…"
+            maxlength="2000"
+            required
+          ></textarea>
+          <span class="fb-field__hint"><span id="fb-count">0</span> / 2000</span>
+        </label>
+
+        <label class="fb-field">
+          <span class="fb-field__label">提报人邮箱</span>
+          <input
+            id="fb-email"
+            name="email"
+            type="email"
+            class="fb-field__input"
+            placeholder="example@example.com"
+            maxlength="254"
+            required
+          />
+          <span class="fb-field__hint">用于回复您的反馈，不会公开。</span>
+        </label>
+
+        <div class="fb-actions">
+          <button type="submit" class="btn btn--solid" id="fb-submit" style="color:#f4f7f5;">
+            提交反馈
+          </button>
+          <span class="fb-msg" id="fb-msg" hidden></span>
+        </div>
+      </form>
+
+      <!-- 成功态 -->
+      <div id="fb-done" class="fb-done" hidden>
+        <p class="fb-done__title">已收到您的反馈</p>
+        <p class="fb-done__desc" id="fb-done-desc"></p>
+        <button type="button" class="btn" id="fb-again" style="color:inherit;border-color:var(--line);">
+          再提交一条
+        </button>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .fb-types {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .fb-type-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    padding: 1.25rem 1.25rem 1.35rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  }
+
+  .fb-type-card:hover {
+    border-color: var(--jade);
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .fb-type-card:active {
+    transform: scale(0.99);
+  }
+
+  .fb-type-card[aria-selected='true'] {
+    border-color: var(--jade);
+    background: rgba(47, 93, 78, 0.08);
+    box-shadow: 0 0 0 1px var(--jade) inset;
+  }
+
+  .fb-type-card__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: var(--jade);
+    color: #f4f7f5;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .fb-type-card__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .fb-type-card__desc {
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  .fb-form {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem 1.5rem 1.75rem;
+  }
+
+  .fb-form__type {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 1.25rem;
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+  }
+
+  .fb-form__type strong {
+    color: var(--jade-deep);
+  }
+
+  .fb-form__change {
+    background: none;
+    border: none;
+    color: var(--jade);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .fb-field {
+    display: block;
+    margin-bottom: 1.1rem;
+  }
+
+  .fb-field__label {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+  }
+
+  .fb-field__input {
+    width: 100%;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 0.98rem;
+    line-height: 1.55;
+  }
+
+  .fb-field__input:focus {
+    outline: none;
+    border-color: var(--jade);
+    box-shadow: 0 0 0 3px rgba(47, 93, 78, 0.15);
+  }
+
+  .fb-field__input--area {
+    min-height: 9rem;
+    resize: vertical;
+  }
+
+  .fb-field__hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+
+  .fb-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+
+  .fb-msg {
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+  }
+
+  .fb-msg--error {
+    color: #b42318;
+  }
+
+  .fb-msg--ok {
+    color: var(--jade-deep);
+  }
+
+  .fb-done {
+    text-align: center;
+    padding: 2rem 1rem;
+    background: rgba(47, 93, 78, 0.06);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+
+  .fb-done__title {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    color: var(--jade-deep);
+    margin: 0 0 0.5rem;
+  }
+
+  .fb-done__desc {
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+    margin: 0 0 1.25rem;
+  }
+
+  @media (max-width: 640px) {
+    .fb-types {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script is:inline>
+  (() => {
+    const TYPE_LABEL = { practice: '修行问题', system: '系统问题' };
+    let selectedType = '';
+
+    const typeCards = document.querySelectorAll('.fb-type-card');
+    const form = document.getElementById('fb-form');
+    const formTypeLabel = document.getElementById('fb-form-type-label');
+    const changeBtn = document.getElementById('fb-change-type');
+    const contentEl = document.getElementById('fb-content');
+    const emailEl = document.getElementById('fb-email');
+    const countEl = document.getElementById('fb-count');
+    const submitBtn = document.getElementById('fb-submit');
+    const msgEl = document.getElementById('fb-msg');
+    const doneBox = document.getElementById('fb-done');
+    const doneDesc = document.getElementById('fb-done-desc');
+    const againBtn = document.getElementById('fb-again');
+
+    function setType(type) {
+      selectedType = type;
+      typeCards.forEach((c) => {
+        c.setAttribute('aria-selected', c.dataset.type === type ? 'true' : 'false');
+      });
+      form.hidden = false;
+      formTypeLabel.textContent = TYPE_LABEL[type] || '—';
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    typeCards.forEach((c) => {
+      c.addEventListener('click', () => setType(c.dataset.type));
+    });
+
+    changeBtn.addEventListener('click', () => {
+      document.querySelector('.fb-types').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    contentEl.addEventListener('input', () => {
+      countEl.textContent = String(contentEl.value.length);
+    });
+
+    function showMsg(text, isErr) {
+      msgEl.textContent = text;
+      msgEl.className = 'fb-msg ' + (isErr ? 'fb-msg--error' : 'fb-msg--ok');
+      msgEl.hidden = false;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msgEl.hidden = true;
+
+      if (!selectedType) {
+        showMsg('请先选择反馈类型', true);
+        return;
+      }
+      const content = contentEl.value.trim();
+      const email = emailEl.value.trim();
+      if (content.length < 5) {
+        showMsg('内容至少 5 字', true);
+        return;
+      }
+      if (content.length > 2000) {
+        showMsg('内容请控制在 2000 字以内', true);
+        return;
+      }
+      if (!email || !/^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(email)) {
+        showMsg('请填写有效的邮箱地址', true);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提交中…';
+
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: selectedType, content, email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || `提交失败（${res.status}）`);
+        }
+        form.hidden = true;
+        doneBox.hidden = false;
+        doneDesc.textContent = `类型：${TYPE_LABEL[selectedType]}。我们会在需要时通过您填写的邮箱回复。`;
+        doneBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (err) {
+        showMsg(err.message || String(err), true);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交反馈';
+      }
+    });
+
+    againBtn.addEventListener('click', () => {
+      form.reset();
+      countEl.textContent = '0';
+      doneBox.hidden = true;
+      selectedType = '';
+      typeCards.forEach((c) => c.setAttribute('aria-selected', 'false'));
+      form.hidden = true;
+      document.querySelector('.fb-types').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  })();
+</script>

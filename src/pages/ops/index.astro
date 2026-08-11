@@ -89,6 +89,32 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <p class="ops-empty">请选择左侧模块</p>
           </div>
         </div>
+
+        <div id="feedback-panel" class="ops-cards-panel ops-cards-panel--collapsible">
+          <button type="button" class="ops-cards-toggle" id="btn-feedback-toggle" aria-expanded="false">
+            <strong>问题反馈</strong>
+            <span id="feedback-summary" class="ops-cards-summary">登录后加载…</span>
+            <span class="ops-cards-toggle__hint">展开</span>
+          </button>
+          <div class="ops-cards-body" id="feedback-body" hidden>
+            <div class="ops-cards-actions" style="flex-wrap:wrap;gap:0.5rem;">
+              <select id="fb-filter-type" class="ops-side-select" aria-label="按类型筛选">
+                <option value="">全部类型</option>
+                <option value="practice">修行问题</option>
+                <option value="system">系统问题</option>
+              </select>
+              <select id="fb-filter-status" class="ops-side-select" aria-label="按状态筛选">
+                <option value="">全部状态</option>
+                <option value="new">新</option>
+                <option value="read">已读</option>
+                <option value="archived">已归档</option>
+              </select>
+              <button type="button" id="btn-feedback-refresh" class="btn ops-mini" style="color:inherit;border-color:var(--line);">刷新</button>
+            </div>
+            <div id="feedback-list" class="fb-ops-list" style="margin-top:0.75rem;"></div>
+            <p id="feedback-msg" class="ops-msg" hidden style="margin:0.5rem 0 0;"></p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -97,3 +123,199 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 <link rel="stylesheet" href="/ops-app.css?v=20260731g" />
 <script type="module" src="/ops-video-compress.js?v=20260725i"></script>
 <script src="/ops-app.js?v=20260731g" defer></script>
+<script is:inline>
+  // 问题反馈面板（独立于 ops-app.js，仅依赖登录 cookie）
+  (() => {
+    const TYPE_LABEL = { practice: '修行问题', system: '系统问题' };
+    const STATUS_LABEL = { new: '新', read: '已读', archived: '已归档' };
+
+    const panel = document.getElementById('feedback-panel');
+    const toggle = document.getElementById('btn-feedback-toggle');
+    const body = document.getElementById('feedback-body');
+    const hint = toggle.querySelector('.ops-cards-toggle__hint');
+    const summary = document.getElementById('feedback-summary');
+    const listEl = document.getElementById('feedback-list');
+    const msgEl = document.getElementById('feedback-msg');
+    const typeSel = document.getElementById('fb-filter-type');
+    const statusSel = document.getElementById('fb-filter-status');
+    const refreshBtn = document.getElementById('btn-feedback-refresh');
+
+    let loaded = false;
+    let loading = false;
+
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatTime(iso) {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch {
+        return iso;
+      }
+    }
+
+    function setMsg(text, isErr) {
+      msgEl.textContent = text || '';
+      msgEl.className = 'ops-msg' + (isErr ? ' ops-msg--error' : '');
+      msgEl.hidden = !text;
+    }
+
+    async function load() {
+      if (loading) return;
+      loading = true;
+      listEl.innerHTML = '<p class="ops-empty" style="margin:0;">加载中…</p>';
+      setMsg('');
+      try {
+        const params = new URLSearchParams();
+        if (typeSel.value) params.set('type', typeSel.value);
+        if (statusSel.value) params.set('status', statusSel.value);
+        const qs = params.toString();
+        const res = await fetch('/api/feedback' + (qs ? `?${qs}` : ''), { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `加载失败（${res.status}）`);
+        const items = data.items || [];
+        summary.textContent = `共 ${items.length} 条`;
+        if (!items.length) {
+          listEl.innerHTML = '<p class="ops-empty" style="margin:0;">暂无反馈</p>';
+        } else {
+          listEl.innerHTML = items.map((it) => {
+            const statusOps = ['read', 'archived']
+              .filter((s) => s !== it.status)
+              .map((s) => `<button type="button" class="btn ops-mini fb-status-btn" data-id="${escapeHtml(it.id)}" data-status="${s}" style="color:inherit;border-color:var(--line);margin-left:0.4rem;">标为${STATUS_LABEL[s]}</button>`)
+              .join('');
+            return `<article class="fb-item fb-item--${escapeHtml(it.status)}">
+              <header class="fb-item__head">
+                <span class="fb-item__type fb-item__type--${escapeHtml(it.type)}">${escapeHtml(TYPE_LABEL[it.type] || it.type)}</span>
+                <span class="fb-item__status fb-item__status--${escapeHtml(it.status)}">${STATUS_LABEL[it.status] || it.status}</span>
+                <span class="fb-item__time">${escapeHtml(formatTime(it.created_at))}</span>
+              </header>
+              <p class="fb-item__content">${escapeHtml(it.content).replace(/\n/g, '<br>')}</p>
+              <footer class="fb-item__foot">
+                <span class="fb-item__email">邮箱：<a href="mailto:${escapeHtml(it.email)}">${escapeHtml(it.email)}</a></span>
+                <span class="fb-item__ops">
+                  ${it.status !== 'new' ? `<button type="button" class="btn ops-mini fb-status-btn" data-id="${escapeHtml(it.id)}" data-status="new" style="color:inherit;border-color:var(--line);margin-left:0.4rem;">标为新</button>` : ''}
+                  ${statusOps}
+                </span>
+              </footer>
+            </article>`;
+          }).join('');
+        }
+        loaded = true;
+      } catch (err) {
+        listEl.innerHTML = '';
+        summary.textContent = '加载失败';
+        setMsg(err.message || String(err), true);
+      } finally {
+        loading = false;
+      }
+    }
+
+    toggle.addEventListener('click', () => {
+      const open = body.hasAttribute('hidden');
+      if (open) {
+        body.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+        hint.textContent = '收起';
+        if (!loaded) load();
+      } else {
+        body.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+        hint.textContent = '展开';
+      }
+    });
+
+    refreshBtn.addEventListener('click', load);
+    typeSel.addEventListener('change', () => { loaded = false; load(); });
+    statusSel.addEventListener('change', () => { loaded = false; load(); });
+
+    listEl.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.fb-status-btn');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const status = btn.dataset.status;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || `更新失败（${res.status}）`);
+        await load();
+      } catch (err) {
+        setMsg(err.message || String(err), true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  })();
+</script>
+<style>
+  .fb-ops-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .fb-item {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    background: rgba(255, 255, 255, 0.7);
+  }
+  .fb-item--new { border-left: 3px solid var(--jade); }
+  .fb-item--archived { opacity: 0.65; }
+  .fb-item__head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+  }
+  .fb-item__type {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  .fb-item__type--practice { background: rgba(47, 93, 78, 0.14); color: var(--jade-deep); }
+  .fb-item__type--system { background: rgba(31, 99, 145, 0.14); color: #1f6391; }
+  .fb-item__status {
+    font-size: 0.76rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 6px;
+    background: rgba(26, 33, 30, 0.08);
+    color: var(--ink-soft);
+  }
+  .fb-item__status--new { background: rgba(180, 35, 24, 0.12); color: #b42318; }
+  .fb-item__status--read { background: rgba(47, 93, 78, 0.12); color: var(--jade-deep); }
+  .fb-item__time { color: var(--ink-soft); margin-left: auto; }
+  .fb-item__content {
+    margin: 0.2rem 0 0.5rem;
+    font-family: var(--font-serif);
+    font-size: 0.98rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .fb-item__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+  .fb-item__ops { display: inline-flex; align-items: center; }
+  .ops-msg--error { color: #b42318; }
+</style>

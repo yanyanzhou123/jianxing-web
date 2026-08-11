@@ -11,11 +11,12 @@ GitHub：https://github.com/yanyanzhou123/jianxing-web
 
 | 项 | 说明 |
 |------|------|
-| 域名 | https://jianxing.win |
+| 域名 | https://jianxing.win（国外）+ https://jianxing.xin（国内备案） |
 | 仓库 | **本仓库** `jianxing-web`（本地目录常为 `加行网站`） |
 | Cloudflare Pages | 项目名 `jianxing` |
 | R2 | 桶 `jianxing-files`（公开前缀以环境变量 `PUBLIC_R2_BASE` 为准） |
 | 定位 | 公开学修站：课表、听读/音视频、运营后台、见行解惑（检索卡 + DeepSeek）等 |
+| 域名接入 | `jianxing.win` 直接绑 Cloudflare Pages；`jianxing.xin` 经反代访问 Pages 内容（此前为 CNAME，因国内访问问题已改反代） |
 | 当前代码版本 | 见下方「版本」；`package.json` 以仓库为准 |
 
 ### 2. 慧灯净土（独立站 · 另目录另部署）
@@ -52,6 +53,18 @@ huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，P
 面向学修内容的静态站点 + 运营可配置后台。目录与媒体存放于 Cloudflare R2，运营保存后前台刷新即可，无需为改内容重新部署。
 
 ## 版本
+
+**v1.3.4**（2026-08-11）
+
+相对 v1.3.3 的主要变化（问题反馈 + 域名接入调整）：
+
+- 新增 `/feedback/` 页面：分「修行问题」「系统问题」两类，表单含内容（5–2000 字）与提报人邮箱；按 IP 限流 5 次/分钟
+- 新增 API `/api/feedback`：POST 公开提交、GET 运营鉴权查看、PATCH 标记状态（new / read / archived）
+- 数据落 D1 新表 `feedback`（迁移 `migrations/0002_feedback.sql`，需执行 `npm run db:migrate:feedback`）
+- 运营后台 `/ops/` 新增「问题反馈」折叠面板：按类型/状态筛选、查看列表、标记已读/归档
+- 顶部导航增加「问题反馈」入口
+- 域名接入调整：`jianxing.xin` 由 CNAME 改为反代方式访问 Cloudflare Pages 内容（解决国内访问问题）；`jianxing.win` 不变
+- `package.json` 版本 **1.3.4**
 
 **v1.3.3**（2026-08-07）
 

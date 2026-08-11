@@ -10,7 +10,7 @@ import {
 } from '../../_lib/yantao';
 
 const CATALOG_KEY = 'config/catalog.json';
-/** 低于此长度或带占位标记的课文不可考问 */
+/** 低于此长度或带占位标记的课文不可讲考 */
 const MIN_EXAM_CHARS = 80;
 
 function isExamableText(text: string): boolean {
@@ -72,10 +72,10 @@ function parseQuestions(raw: string): ExamQuestion[] {
   }
 }
 
-const KHENPO_SYSTEM = `你是见行修学网站的考问堪布。风格恭敬、严肃、清晰，如真实依止上师前的口试。
+const KHENPO_SYSTEM = `你是见行修学网站的讲考讲师。风格恭敬、严肃、清晰，如真实依止上师前的口试。
 规则：
 1. 只能依据给定「本课原文」出题、点评、追问；原文未述及的不要引入，可说「本课原文未展开」。
-2. 不编造经论出处，不替代上师与实修决断；仅作辅助考问。
+2. 不编造经论出处，不替代上师与实修决断；仅作辅助讲考。
 3. 用语简洁中文，不要 Markdown（不要 **、#、列表符 -）。
 4. 一次只推进当前这一题的研讨，不要一次抛出所有题。`;
 
@@ -109,7 +109,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return json(
           {
             error:
-              '本课尚无足够正文（多为占位），请先在运营后台补全文稿后再考问。',
+              '本课尚无足够正文（多为占位），请先在运营后台补全文稿后再讲考。',
           },
           400,
         );
@@ -131,7 +131,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const sessionId = await newSessionId();
       const first = questions[0];
-      const opening = `善。今日就「${lesson.moduleTitle} · ${lesson.lessonTitle}」略作考问，共 ${questions.length} 题。请依本课所闻如理作答。\n\n第一题：${first.prompt}`;
+      const opening = `善。今日就「${lesson.moduleTitle} · ${lesson.lessonTitle}」略作讲考，共 ${questions.length} 题。请依本课所闻如理作答。\n\n第一题：${first.prompt}`;
 
       const session: ExamSession = {
         expiresAt: 0,
@@ -173,7 +173,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           sessionId,
           phase: 'done',
           currentIndex: session.currentIndex,
-          reply: '本次考问已结束。若要再考，请重新选择课次开始。',
+          reply: '本次讲考已结束。若要再考，请重新选择课次开始。',
         });
       }
 
@@ -191,8 +191,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           ? `当前是第 ${session.currentIndex + 1}/${session.questions.length} 题：「${q.prompt}」。
 请依据原文点评学员作答：先判定大体是否相应，再指出欠缺或可延伸处；可提出一个简短追问。
 若学员已答得充分，或主动说「下一题」「请继续」，则在回复末尾单独一行写：【进入下一题】
-若这是最后一题且已可结束，写：【结束考问】`
-          : `仍在第 ${session.currentIndex + 1} 题的研讨中。继续依原文回应；充分后写【进入下一题】或【结束考问】。`;
+若这是最后一题且已可结束，写：【结束讲考】`
+          : `仍在第 ${session.currentIndex + 1} 题的研讨中。继续依原文回应；充分后写【进入下一题】或【结束讲考】。`;
 
       let raw = await deepseekChat(
         env.DEEPSEEK_API_KEY,
@@ -206,15 +206,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       let phase = session.phase === 'waiting_answer' ? 'discussing' : session.phase;
       let reply = raw
         .replace(/【进入下一题】/g, '')
-        .replace(/【结束考问】/g, '')
+        .replace(/【结束讲考】/g, '')
         .trim();
 
-      if (/【结束考问】/.test(raw) || (session.currentIndex >= session.questions.length - 1 && /【进入下一题】/.test(raw))) {
+      if (/【结束讲考】/.test(raw) || (session.currentIndex >= session.questions.length - 1 && /【进入下一题】/.test(raw))) {
         phase = 'done';
         const summary = await deepseekChat(
           env.DEEPSEEK_API_KEY,
           KHENPO_SYSTEM,
-          `课程：${session.moduleTitle} · ${session.lessonTitle}\n原文要点依据：\n${session.lessonText.slice(0, 6000)}\n\n考问题目：\n${session.questions.map((x) => x.prompt).join('\n')}\n\n请作简短总评（优缺点）与两条复习建议，仍须依据本课原文。不要 Markdown。`,
+          `课程：${session.moduleTitle} · ${session.lessonTitle}\n原文要点依据：\n${session.lessonText.slice(0, 6000)}\n\n讲考题目：\n${session.questions.map((x) => x.prompt).join('\n')}\n\n请作简短总评（优缺点）与两条复习建议，仍须依据本课原文。不要 Markdown。`,
           { temperature: 0.3 },
         );
         reply = `${reply}\n\n——\n${stripMarkdownNoise(summary)}`;

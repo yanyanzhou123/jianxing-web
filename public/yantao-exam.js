@@ -185,7 +185,7 @@
       startBtn.disabled = true;
       startBtn.textContent = '拟题中…';
     }
-    show(msg, '堪布正在依原文拟题，通常需要数秒…', false);
+    show(msg, '正在依原文拟题，通常需要数秒…', false);
     try {
       const data = await api('/api/yantao/exam', {
         action: 'start',
@@ -207,7 +207,7 @@
       busy = false;
       if (startBtn) {
         startBtn.disabled = false;
-        startBtn.textContent = '开始考问';
+        startBtn.textContent = '开始讲考';
       }
     }
   }
@@ -219,7 +219,7 @@
     busy = true;
     input.value = '';
     appendBubble('user', text);
-    show(status, '堪布审思中…', false);
+    show(status, '审思中…', false);
     try {
       const data = await api('/api/yantao/exam', {
         action: 'reply',
@@ -228,7 +228,7 @@
       });
       appendBubble('assistant', data.reply);
       if (data.phase === 'done') {
-        show(status, '本次考问已结束。', false);
+        show(status, '本次讲考已结束。', false);
         input.disabled = true;
       } else {
         show(status, '第 ' + (data.currentIndex + 1) + ' / ' + data.questionCount + ' 题', false);

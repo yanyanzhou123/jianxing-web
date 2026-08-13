@@ -304,7 +304,7 @@ JX.renderHomeStairs = (catalog) => {
     <section class="home-block home-block--stairs">
       <div class="section__head">
         <h2>次第修学</h2>
-        <p>建议按下列次第，一门接一门循序学修。</p>
+        <p>建议按上师教言,循序学修。</p>
       </div>
       <ol class="path-stairs path-stairs--sections">
         ${items}

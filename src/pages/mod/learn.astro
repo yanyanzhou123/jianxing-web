@@ -138,6 +138,41 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         return null;
       }
 
+      function customAudioHtml(url) {
+        return `
+          <div class="jx-audio" data-src="${JX.escape(url)}" preload="none">
+            <audio preload="none" src="${JX.escape(url)}"></audio>
+            <div class="jx-audio__progress" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+              <div class="jx-audio__progress-track">
+                <div class="jx-audio__progress-buffered"></div>
+                <div class="jx-audio__progress-played"></div>
+                <div class="jx-audio__progress-thumb"></div>
+              </div>
+              <span class="jx-audio__time jx-audio__time--cur">0:00</span>
+              <span class="jx-audio__time jx-audio__time--dur">0:00</span>
+            </div>
+            <div class="jx-audio__controls">
+              <button type="button" class="jx-audio__btn jx-audio__play" aria-label="播放" title="播放/暂停">
+                <span class="jx-audio__icon-play" aria-hidden="true">▶</span>
+                <span class="jx-audio__icon-pause" aria-hidden="true" hidden>❚❚</span>
+              </button>
+              <div class="jx-audio__rate" aria-label="倍速">
+                <button type="button" class="jx-audio__rate-btn" data-rate="0.75" title="0.75x">0.75x</button>
+                <button type="button" class="jx-audio__rate-btn is-active" data-rate="1" title="1.0x">1.0x</button>
+                <button type="button" class="jx-audio__rate-btn" data-rate="1.25" title="1.25x">1.25x</button>
+                <button type="button" class="jx-audio__rate-btn" data-rate="1.5" title="1.5x">1.5x</button>
+                <button type="button" class="jx-audio__rate-btn" data-rate="2" title="2.0x">2.0x</button>
+              </div>
+              <div class="jx-audio__volume" aria-label="音量">
+                <button type="button" class="jx-audio__vol-btn" aria-label="静音" title="静音">
+                  <span class="jx-audio__icon-vol" aria-hidden="true">🔊</span>
+                </button>
+                <input type="range" class="jx-audio__vol-range" min="0" max="1" step="0.05" value="1" aria-label="音量滑块" />
+              </div>
+            </div>
+          </div>`;
+      }
+
       function panelBody(kind) {
         if (kind === 'video') {
           const err = mediaEmpty('video', lesson.videoPath);
@@ -157,7 +192,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         if (kind === 'audio') {
           const err = mediaEmpty('audio', lesson.audioPath);
           if (err) return err;
-          return `<div class="audio-box learn-audio"><audio controls preload="none" src="${JX.assetUrl(lesson.audioPath)}"></audio></div>`;
+          return `<div class="audio-box learn-audio">${customAudioHtml(JX.assetUrl(lesson.audioPath))}</div>`;
         }
 
         if (!hasText) {
@@ -171,7 +206,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                   <div class="learn-dock__player">
                     ${
                       url
-                        ? `<audio controls preload="none" src="${url}"></audio>`
+                        ? customAudioHtml(url)
                         : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
                     }
                   </div>
@@ -216,7 +251,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <div class="learn-dock__player">
                   ${
                     url
-                      ? `<audio controls preload="none" src="${url}"></audio>`
+                      ? customAudioHtml(url)
                       : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
                   }
                 </div>
@@ -292,6 +327,198 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         });
       }
 
+      function initCustomAudios(root) {
+        const players = (root || document).querySelectorAll('.jx-audio');
+        players.forEach((wrap) => {
+          if (wrap.dataset.inited === '1') return;
+          wrap.dataset.inited = '1';
+
+          const audio = wrap.querySelector('audio');
+          if (!audio) return;
+
+          const playBtn = wrap.querySelector('.jx-audio__play');
+          const iconPlay = wrap.querySelector('.jx-audio__icon-play');
+          const iconPause = wrap.querySelector('.jx-audio__icon-pause');
+          const progEl = wrap.querySelector('.jx-audio__progress');
+          const playedEl = wrap.querySelector('.jx-audio__progress-played');
+          const bufferedEl = wrap.querySelector('.jx-audio__progress-buffered');
+          const thumbEl = wrap.querySelector('.jx-audio__progress-thumb');
+          const trackEl = wrap.querySelector('.jx-audio__progress-track');
+          const curTimeEl = wrap.querySelector('.jx-audio__time--cur');
+          const durTimeEl = wrap.querySelector('.jx-audio__time--dur');
+          const rateBtns = wrap.querySelectorAll('.jx-audio__rate-btn');
+          const volBtn = wrap.querySelector('.jx-audio__vol-btn');
+          const volIcon = wrap.querySelector('.jx-audio__icon-vol');
+          const volRange = wrap.querySelector('.jx-audio__vol-range');
+
+          function fmt(t) {
+            if (!Number.isFinite(t) || t < 0) return '0:00';
+            const s = Math.floor(t % 60);
+            const m = Math.floor(t / 60);
+            if (m >= 60) {
+              const h = Math.floor(m / 60);
+              const mm = m % 60;
+              return `${h}:${String(mm).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+            return `${m}:${String(s).padStart(2, '0')}`;
+          }
+
+          function setPlayIcon(isPlaying) {
+            if (iconPlay) iconPlay.hidden = isPlaying;
+            if (iconPause) iconPause.hidden = !isPlaying;
+            if (playBtn) playBtn.setAttribute('aria-label', isPlaying ? '暂停' : '播放');
+          }
+
+          function updateTimeUI() {
+            const cur = audio.currentTime || 0;
+            const dur = audio.duration || 0;
+            if (curTimeEl) curTimeEl.textContent = fmt(cur);
+            if (durTimeEl) durTimeEl.textContent = fmt(dur);
+            if (dur > 0 && playedEl) {
+              const pct = (cur / dur) * 100;
+              playedEl.style.width = pct + '%';
+              if (thumbEl) thumbEl.style.left = pct + '%';
+              progEl?.setAttribute('aria-valuenow', String(Math.round(pct)));
+            }
+            try {
+              if (dur > 0 && bufferedEl && audio.buffered.length) {
+                const end = audio.buffered.end(audio.buffered.length - 1);
+                bufferedEl.style.width = Math.min(100, (end / dur) * 100) + '%';
+              }
+            } catch (_) {}
+          }
+
+          playBtn?.addEventListener('click', () => {
+            if (audio.paused) {
+              audio.play().catch(() => {});
+            } else {
+              audio.pause();
+            }
+          });
+
+          audio.addEventListener('play', () => setPlayIcon(true));
+          audio.addEventListener('pause', () => setPlayIcon(false));
+          audio.addEventListener('ended', () => setPlayIcon(false));
+          audio.addEventListener('loadedmetadata', updateTimeUI);
+          audio.addEventListener('durationchange', updateTimeUI);
+          audio.addEventListener('timeupdate', updateTimeUI);
+          audio.addEventListener('progress', updateTimeUI);
+
+          let dragging = false;
+          let seekPending = null;
+          function seekFromEvent(e) {
+            if (!trackEl || !audio.duration) return;
+            const rect = trackEl.getBoundingClientRect();
+            const clientX = (e.touches && e.touches[0]?.clientX) ?? e.clientX;
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            seekPending = ratio;
+            if (playedEl) playedEl.style.width = ratio * 100 + '%';
+            if (thumbEl) thumbEl.style.left = ratio * 100 + '%';
+            if (curTimeEl) curTimeEl.textContent = fmt(ratio * (audio.duration || 0));
+          }
+
+          trackEl?.addEventListener('mousedown', (e) => {
+            dragging = true;
+            progEl?.classList.add('is-dragging');
+            seekFromEvent(e);
+            e.preventDefault();
+          });
+
+          window.addEventListener('mousemove', (e) => {
+            if (dragging) seekFromEvent(e);
+          });
+          window.addEventListener('mouseup', () => {
+            if (dragging && seekPending != null && audio.duration) {
+              audio.currentTime = seekPending * audio.duration;
+            }
+            dragging = false;
+            seekPending = null;
+            progEl?.classList.remove('is-dragging');
+          });
+
+          trackEl?.addEventListener('touchstart', (e) => {
+            dragging = true;
+            progEl?.classList.add('is-dragging');
+            seekFromEvent(e);
+          }, { passive: true });
+          window.addEventListener('touchmove', (e) => {
+            if (dragging) seekFromEvent(e);
+          }, { passive: true });
+          window.addEventListener('touchend', () => {
+            if (dragging && seekPending != null && audio.duration) {
+              audio.currentTime = seekPending * audio.duration;
+            }
+            dragging = false;
+            seekPending = null;
+            progEl?.classList.remove('is-dragging');
+          });
+
+          progEl?.addEventListener('keydown', (e) => {
+            if (!audio.duration) return;
+            const step = Math.max(1, audio.duration * 0.02);
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+              audio.currentTime = Math.min(audio.duration, audio.currentTime + step);
+              e.preventDefault();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+              audio.currentTime = Math.max(0, audio.currentTime - step);
+              e.preventDefault();
+            } else if (e.key === 'Home') {
+              audio.currentTime = 0;
+              e.preventDefault();
+            } else if (e.key === 'End') {
+              audio.currentTime = audio.duration;
+              e.preventDefault();
+            }
+          });
+
+          rateBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const r = Number(btn.dataset.rate) || 1;
+              audio.playbackRate = r;
+              rateBtns.forEach((b) => b.classList.toggle('is-active', b === btn));
+            });
+          });
+
+          let lastVol = 1;
+          function applyVol(v, updateRange = true) {
+            const clamped = Math.max(0, Math.min(1, v));
+            audio.volume = clamped;
+            audio.muted = clamped <= 0;
+            if (updateRange && volRange && !volRangeMatchesAudio) {
+              volRange.value = String(clamped);
+              volRangeMatchesAudio = true;
+            }
+            if (volIcon) {
+              if (clamped <= 0 || audio.muted) volIcon.textContent = '🔇';
+              else if (clamped < 0.5) volIcon.textContent = '🔈';
+              else volIcon.textContent = '🔊';
+            }
+          }
+
+          let volRangeMatchesAudio = true;
+          volRange?.addEventListener('input', () => {
+            const v = Number(volRange.value);
+            volRangeMatchesAudio = true;
+            if (v > 0) lastVol = v;
+            applyVol(v, false);
+          });
+
+          volBtn?.addEventListener('click', () => {
+            if (audio.volume > 0) {
+              lastVol = audio.volume;
+              applyVol(0);
+            } else {
+              applyVol(lastVol || 1);
+            }
+          });
+
+          // 初始化
+          updateTimeUI();
+          setPlayIcon(!audio.paused);
+          applyVol(1);
+        });
+      }
+
       function showPanel(current) {
         activeTab = current;
         setTabInUrl(current);
@@ -315,6 +542,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               bindTextToc(panel);
             }
             if (key === 'video') bindVideoStatus(panel);
+            initCustomAudios(panel);
           }
           panel.hidden = key !== current;
         });

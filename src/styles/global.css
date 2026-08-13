@@ -2057,3 +2057,319 @@ img {
     bottom: calc(4.3rem + max(0.85rem, env(safe-area-inset-bottom)));
   }
 }
+
+/* ========== 自定义音频播放器 ==========
+   进度条独占第一行（拉满宽度），其他控件放第二行 */
+.jx-audio {
+  --jx-audio-bg: rgba(247, 249, 248, 0.96);
+  --jx-audio-border: rgba(47, 93, 78, 0.22);
+  --jx-audio-jade: #2f5d4e;
+  --jx-audio-jade-deep: #1e3d34;
+  --jx-audio-ink: #1a211e;
+  --jx-audio-ink-soft: #3a4540;
+  --jx-audio-line: rgba(26, 33, 30, 0.12);
+  --jx-audio-line-strong: rgba(47, 93, 78, 0.35);
+
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 0.95rem;
+  background: var(--jx-audio-bg);
+  border: 1px solid var(--jx-audio-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 10px rgba(26, 33, 30, 0.06);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  color: var(--jx-audio-ink);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jx-audio audio {
+  display: none !important;
+}
+
+/* 第一行：进度条独占整行 */
+.jx-audio__progress {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-rows: auto;
+  grid-template-areas:
+    "track track track"
+    ". cur dur";
+  gap: 0.25rem 0.6rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.jx-audio__progress:focus-visible {
+  outline: 2px solid var(--jx-audio-jade);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.jx-audio__progress-track {
+  grid-area: track;
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background: rgba(26, 33, 30, 0.08);
+  border-radius: 999px;
+  overflow: visible;
+  cursor: pointer;
+}
+
+.jx-audio__progress-buffered,
+.jx-audio__progress-played {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.jx-audio__progress-buffered {
+  background: rgba(47, 93, 78, 0.18);
+  width: 0%;
+}
+
+.jx-audio__progress-played {
+  background: linear-gradient(90deg, var(--jx-audio-jade), var(--jx-audio-jade-deep));
+  width: 0%;
+}
+
+.jx-audio__progress-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--jx-audio-jade-deep);
+  box-shadow: 0 2px 6px rgba(26, 33, 30, 0.2);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.jx-audio__progress:hover .jx-audio__progress-thumb,
+.jx-audio__progress.is-dragging .jx-audio__progress-thumb {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.jx-audio__time {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--jx-audio-ink-soft);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.jx-audio__time--cur {
+  grid-area: cur;
+}
+
+.jx-audio__time--dur {
+  grid-area: dur;
+}
+
+/* 第二行：播放按钮 / 倍速 / 音量 */
+.jx-audio__controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.75rem;
+  justify-content: space-between;
+}
+
+.jx-audio__btn {
+  border: 1px solid var(--jx-audio-line-strong);
+  background: var(--jx-audio-jade);
+  color: #f4f7f5;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  transition: background 0.2s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.jx-audio__btn:hover {
+  background: var(--jx-audio-jade-deep);
+  transform: translateY(-1px);
+}
+
+.jx-audio__play .jx-audio__icon-pause {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.jx-audio__rate {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.jx-audio__rate-btn {
+  border: 1px solid var(--jx-audio-line);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--jx-audio-ink-soft);
+  font-family: var(--font-sans, system-ui);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.28rem 0.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+}
+
+.jx-audio__rate-btn:hover {
+  border-color: var(--jx-audio-line-strong);
+  color: var(--jx-audio-jade-deep);
+}
+
+.jx-audio__rate-btn.is-active {
+  background: var(--jx-audio-jade);
+  border-color: var(--jx-audio-jade);
+  color: #f4f7f5;
+}
+
+.jx-audio__volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.jx-audio__vol-btn {
+  border: 0;
+  background: transparent;
+  padding: 0.2rem;
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--jx-audio-ink-soft);
+  flex-shrink: 0;
+}
+
+.jx-audio__vol-btn:hover {
+  color: var(--jx-audio-jade-deep);
+}
+
+.jx-audio__vol-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 5.5rem;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(26, 33, 30, 0.12);
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 1;
+}
+
+.jx-audio__vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--jx-audio-jade-deep);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(26, 33, 30, 0.2);
+  cursor: pointer;
+}
+
+.jx-audio__vol-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--jx-audio-jade-deep);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(26, 33, 30, 0.2);
+  cursor: pointer;
+}
+
+/* 移动端优化：控件第二行挤不下时自动换行，倍速整行放底部 */
+@media (max-width: 560px), (hover: none) and (pointer: coarse) {
+  .jx-audio {
+    padding: 0.75rem 0.7rem;
+    gap: 0.55rem;
+  }
+
+  .jx-audio__progress-track {
+    height: 12px;
+  }
+
+  .jx-audio__progress-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .jx-audio__controls {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.45rem 0.5rem;
+  }
+
+  .jx-audio__btn {
+    width: 2.55rem;
+    height: 2.55rem;
+    font-size: 0.9rem;
+  }
+
+  .jx-audio__rate {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding-top: 0.2rem;
+    border-top: 1px dashed var(--jx-audio-line);
+    margin-top: 0.1rem;
+  }
+
+  .jx-audio__rate-btn {
+    padding: 0.32rem 0.55rem;
+    font-size: 0.78rem;
+  }
+
+  .jx-audio__volume {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .jx-audio__vol-range {
+    width: 4.5rem;
+  }
+}
+
+/* 更窄屏（<=380px）音量滑块也单独一行，避免横向挤 */
+@media (max-width: 380px) {
+  .jx-audio__volume {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding-top: 0.25rem;
+    border-top: 1px dashed var(--jx-audio-line);
+    margin-top: 0.1rem;
+  }
+  .jx-audio__rate {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .jx-audio__vol-range {
+    width: 8rem;
+  }
+}

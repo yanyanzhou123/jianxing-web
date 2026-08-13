@@ -37,6 +37,29 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         throw new Error('页面脚本未更新，请强制刷新（Ctrl+F5）后再试');
       }
 
+      // 启动时扫一次 localStorage，清掉过期的断点续播记录
+      (function sweepStaleResume() {
+        const PREFIX = 'jx_resume::';
+        const TTL = 30 * 24 * 60 * 60 * 1000;
+        try {
+          const now = Date.now();
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith(PREFIX)) continue;
+            const raw = localStorage.getItem(k);
+            if (!raw) { keysToRemove.push(k); continue; }
+            try {
+              const data = JSON.parse(raw);
+              if (data?.savedAt && now - data.savedAt > TTL) keysToRemove.push(k);
+            } catch (_) {
+              keysToRemove.push(k);
+            }
+          }
+          keysToRemove.forEach((k) => { try { localStorage.removeItem(k); } catch (_) {} });
+        } catch (_) {}
+      })();
+
       const catalog = await JX.fetchCatalog();
       const found = JX.findLesson(catalog, moduleSlug, id);
       if (!found) {
@@ -141,13 +164,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       function customAudioHtml(url) {
         return `
           <div class="jx-audio" data-src="${JX.escape(url)}" preload="none">
-            <div class="jx-audio__head">
-              <button type="button" class="jx-audio__toggle" aria-expanded="true" aria-controls="jx-audio-body" title="收起/展开播放器" data-label-expanded="收起" data-label-collapsed="展开">
-                <span class="jx-audio__toggle-label" aria-hidden="true">收起</span>
-                <span class="jx-audio__toggle-icon" aria-hidden="true">▴</span>
-              </button>
-              <span class="jx-audio__head-rate" aria-label="当前倍速">1.0x</span>
-            </div>
             <audio preload="none" src="${JX.escape(url)}"></audio>
             <div class="jx-audio__compact" aria-label="紧凑播放条">
               <button type="button" class="jx-audio__btn jx-audio__play" aria-label="播放" title="播放/暂停">
@@ -162,6 +178,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 </div>
               </div>
               <span class="jx-audio__time-combo">0:00 / 0:00</span>
+              <button type="button" class="jx-audio__toggle" aria-expanded="false" aria-controls="jx-audio-body" title="收起/展开播放器" data-label-expanded="收起" data-label-collapsed="展开">
+                <span class="jx-audio__toggle-label" aria-hidden="true">展开</span>
+                <span class="jx-audio__toggle-icon" aria-hidden="true">▾</span>
+              </button>
             </div>
             <div class="jx-audio__body" id="jx-audio-body">
               <div class="jx-audio__progress" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
@@ -190,6 +210,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                     <span class="jx-audio__icon-vol" aria-hidden="true">🔊</span>
                   </button>
                   <input type="range" class="jx-audio__vol-range" min="0" max="1" step="0.05" value="1" aria-label="音量滑块" />
+                </div>
+                <div class="jx-audio__tail">
+                  <span class="jx-audio__head-rate" aria-label="当前倍速">1.0x</span>
+                  <button type="button" class="jx-audio__toggle" aria-expanded="true" aria-controls="jx-audio-body" title="收起/展开播放器" data-label-expanded="收起" data-label-collapsed="展开">
+                    <span class="jx-audio__toggle-label" aria-hidden="true">收起</span>
+                    <span class="jx-audio__toggle-icon" aria-hidden="true">▴</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -375,29 +402,168 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           const volBtn = wrap.querySelector('.jx-audio__vol-btn');
           const volIcon = wrap.querySelector('.jx-audio__icon-vol');
           const volRange = wrap.querySelector('.jx-audio__vol-range');
-          const toggleBtn = wrap.querySelector('.jx-audio__toggle');
-          const toggleLabel = wrap.querySelector('.jx-audio__toggle-label');
+          const toggleBtns = Array.from(wrap.querySelectorAll('.jx-audio__toggle'));
+          const toggleLabels = Array.from(wrap.querySelectorAll('.jx-audio__toggle-label'));
 
           const LS_COLLAPSED_KEY = 'jx_audio_collapsed';
           function applyCollapsedClass(collapsed) {
             wrap.classList.toggle('is-collapsed', collapsed);
-            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-            if (toggleLabel) {
-              toggleLabel.textContent = collapsed ? '展开' : '收起';
-            }
+            toggleBtns.forEach((btn) => btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true'));
+            toggleLabels.forEach((label) => {
+              label.textContent = collapsed ? '展开' : '收起';
+            });
           }
           try {
             const saved = localStorage.getItem(LS_COLLAPSED_KEY);
             if (saved === '1') applyCollapsedClass(true);
           } catch (_) {}
 
-          toggleBtn?.addEventListener('click', () => {
-            const next = !wrap.classList.contains('is-collapsed');
-            applyCollapsedClass(next);
-            try {
-              localStorage.setItem(LS_COLLAPSED_KEY, next ? '1' : '0');
-            } catch (_) {}
+          toggleBtns.forEach((toggleBtn) => {
+            toggleBtn.addEventListener('click', () => {
+              const next = !wrap.classList.contains('is-collapsed');
+              applyCollapsedClass(next);
+              try {
+                localStorage.setItem(LS_COLLAPSED_KEY, next ? '1' : '0');
+              } catch (_) {}
+            });
           });
+
+          // ====== 断点续播 ======
+          const LS_RESUME_PREFIX = 'jx_resume::';
+          const LS_RESUME_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
+          const RESUME_TAIL_SEC = 10; // 剩最后 10 秒就视为听完，清掉记录
+          const RESUME_SAVE_INTERVAL_MS = 5000; // 每 5 秒定时保存一次
+
+          function resumeKeyFor(audioEl) {
+            const src = audioEl?.currentSrc || audioEl?.src || '';
+            if (!src) return '';
+            try {
+              return LS_RESUME_PREFIX + src;
+            } catch (_) {
+              return LS_RESUME_PREFIX + src;
+            }
+          }
+
+          function loadResume(audioEl) {
+            const key = resumeKeyFor(audioEl);
+            if (!key) return null;
+            try {
+              const raw = localStorage.getItem(key);
+              if (!raw) return null;
+              const data = JSON.parse(raw);
+              if (!data || !Number.isFinite(data.time) || data.time <= 0) {
+                localStorage.removeItem(key);
+                return null;
+              }
+              const now = Date.now();
+              if (Number.isFinite(data.savedAt) && now - data.savedAt > LS_RESUME_TTL_MS) {
+                localStorage.removeItem(key);
+                return null;
+              }
+              // 如果 audioUrl 对不上（同一课换了录音），清掉旧记录
+              if (data.audioUrl) {
+                const curUrl = audioEl?.currentSrc || audioEl?.src || '';
+                if (curUrl && data.audioUrl !== curUrl) {
+                  localStorage.removeItem(key);
+                  return null;
+                }
+              }
+              return data;
+            } catch (_) {
+              try { localStorage.removeItem(key); } catch (_) {}
+              return null;
+            }
+          }
+
+          function saveResume(audioEl, opts = {}) {
+            const key = resumeKeyFor(audioEl);
+            if (!key) return;
+            try {
+              const time = Number.isFinite(opts.forceTime) ? opts.forceTime : (audioEl?.currentTime || 0);
+              const dur = audioEl?.duration || 0;
+              // 接近结尾（< 10 秒，且 duration 有效）时，清掉记录
+              if (dur > 0 && time > Math.max(0, dur - RESUME_TAIL_SEC)) {
+                localStorage.removeItem(key);
+                return;
+              }
+              if (time <= 0.5) return; // 还没开始就没必要存
+              const audioUrl = audioEl?.currentSrc || audioEl?.src || '';
+              const payload = JSON.stringify({
+                time: Number(time.toFixed(2)),
+                audioUrl,
+                savedAt: Date.now()
+              });
+              localStorage.setItem(key, payload);
+            } catch (_) {}
+          }
+
+          function clearResume(audioEl) {
+            const key = resumeKeyFor(audioEl);
+            if (!key) return;
+            try { localStorage.removeItem(key); } catch (_) {}
+          }
+
+          let resumeToastTimer = null;
+          function showResumeToast(sec) {
+            // 找或建 toast 容器
+            let host = document.querySelector('.jx-audio__resume-toasts');
+            if (!host) {
+              host = document.createElement('div');
+              host.className = 'jx-audio__resume-toasts';
+              document.body.appendChild(host);
+            }
+            const t = document.createElement('div');
+            t.className = 'jx-audio__resume-toast';
+            t.textContent = `已从 ${fmt(sec)} 继续播放`;
+            host.appendChild(t);
+            // 2.5s 自动淡出
+            requestAnimationFrame(() => t.classList.add('is-show'));
+            const thisTimer = setTimeout(() => {
+              t.classList.remove('is-show');
+              setTimeout(() => {
+                if (t.parentElement === host) host.removeChild(t);
+              }, 400);
+            }, 2500);
+            resumeToastTimer = thisTimer;
+          }
+
+          let resumeSaveTimer = null;
+          function startResumeSaver(audioEl) {
+            stopResumeSaver();
+            resumeSaveTimer = setInterval(() => {
+              saveResume(audioEl);
+            }, RESUME_SAVE_INTERVAL_MS);
+          }
+          function stopResumeSaver() {
+            if (resumeSaveTimer) {
+              clearInterval(resumeSaveTimer);
+              resumeSaveTimer = null;
+            }
+          }
+
+          let resumePending = null; // 存 {time: sec} 等 metadata 加载后应用
+          const savedData = loadResume(audio);
+          if (savedData && Number.isFinite(savedData.time) && savedData.time > 0.5) {
+            resumePending = { time: savedData.time };
+          }
+
+          function tryApplyResume() {
+            if (!resumePending) return;
+            const dur = audio.duration || 0;
+            if (dur <= 0) return; // 元数据还没加载好，等下次
+            const sec = resumePending.time;
+            if (sec > Math.max(0, dur - RESUME_TAIL_SEC)) {
+              // 之前保存的位置已经在结尾附近，直接清掉不续播
+              clearResume(audio);
+              resumePending = null;
+              return;
+            }
+            try {
+              audio.currentTime = sec;
+            } catch (_) {}
+            showResumeToast(sec);
+            resumePending = null;
+          }
 
           function fmt(t) {
             if (!Number.isFinite(t) || t < 0) return '0:00';
@@ -417,6 +583,20 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             playBtns.forEach((b) => b.setAttribute('aria-label', isPlaying ? '暂停' : '播放'));
           }
 
+          function getTrackForThumb(thumbEl) {
+            return thumbEl?.closest('.jx-audio__progress-track');
+          }
+          function thumbLeftFromPct(pct, thumbEl) {
+            const track = getTrackForThumb(thumbEl);
+            const trackWidth = track?.clientWidth || 0;
+            if (trackWidth <= 0) return (pct / 100) + '%';
+            const thumbSize = thumbEl.offsetWidth || 10;
+            const minPx = thumbSize / 2;
+            const maxPx = trackWidth - thumbSize / 2;
+            const leftPx = minPx + (maxPx - minPx) * (pct / 100);
+            return leftPx + 'px';
+          }
+
           function updateTimeUI() {
             const cur = audio.currentTime || 0;
             const dur = audio.duration || 0;
@@ -429,7 +609,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             if (dur > 0 && playedEls.length) {
               const pct = (cur / dur) * 100;
               playedEls.forEach((el) => (el.style.width = pct + '%'));
-              thumbEls.forEach((el) => (el.style.left = pct + '%'));
+              thumbEls.forEach((el) => (el.style.left = thumbLeftFromPct(pct, el)));
               progEls.forEach((el) => el.setAttribute('aria-valuenow', String(Math.round(pct))));
             }
             try {
@@ -448,13 +628,47 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             });
           });
 
-          audio.addEventListener('play', () => setPlayIcon(true));
-          audio.addEventListener('pause', () => setPlayIcon(false));
-          audio.addEventListener('ended', () => setPlayIcon(false));
-          audio.addEventListener('loadedmetadata', updateTimeUI);
-          audio.addEventListener('durationchange', updateTimeUI);
+          audio.addEventListener('play', () => {
+            setPlayIcon(true);
+            startResumeSaver(audio);
+          });
+          audio.addEventListener('pause', () => {
+            setPlayIcon(false);
+            stopResumeSaver();
+            saveResume(audio); // 暂停立刻保存一次
+          });
+          audio.addEventListener('ended', () => {
+            setPlayIcon(false);
+            stopResumeSaver();
+            clearResume(audio); // 听完了，清记录
+          });
+          audio.addEventListener('seeked', () => {
+            saveResume(audio); // 用户拖动完了，立刻保存一次
+          });
+          audio.addEventListener('loadedmetadata', () => {
+            updateTimeUI();
+            tryApplyResume();
+          });
+          audio.addEventListener('durationchange', () => {
+            updateTimeUI();
+            tryApplyResume();
+          });
           audio.addEventListener('timeupdate', updateTimeUI);
           audio.addEventListener('progress', updateTimeUI);
+
+          // 离开页面 / 切后台：最后一次保存
+          function saveBeforeLeave() {
+            if (!audio.paused) stopResumeSaver();
+            saveResume(audio);
+          }
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') saveBeforeLeave();
+            else if (!audio.paused) startResumeSaver(audio);
+          });
+          window.addEventListener('pagehide', saveBeforeLeave);
+          try {
+            document.addEventListener('astro:before-swap', saveBeforeLeave);
+          } catch (_) {}
 
           let dragging = false;
           let activeTrack = null;
@@ -474,7 +688,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             seekPending = ratio;
             const { playedEl, thumbEl } = findTrackPair(trackEl);
             if (playedEl) playedEl.style.width = ratio * 100 + '%';
-            if (thumbEl) thumbEl.style.left = ratio * 100 + '%';
+            if (thumbEl) thumbEl.style.left = thumbLeftFromPct(ratio * 100, thumbEl);
             curTimeEls.forEach((el) => (el.textContent = fmt(ratio * (audio.duration || 0))));
             if (comboTimeEl) comboTimeEl.textContent = `${fmt(ratio * (audio.duration || 0))} / ${fmt(audio.duration || 0)}`;
           }
@@ -527,6 +741,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             dragging = false;
             activeTrack = null;
             seekPending = null;
+          });
+
+          // 窗口尺寸变化时重新计算 thumb 位置（因为 track 宽度变了）
+          let resizeTimer;
+          window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+              if (audio.duration > 0) updateTimeUI();
+            }, 100);
           });
 
           progEls.forEach((progEl) => {

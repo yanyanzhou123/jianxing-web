@@ -2004,3 +2004,56 @@ img {
     width: min(100% - 1.2rem, var(--content));
   }
 }
+
+/* ===== 返回 FAB：左下角，与「见行解惑」对称 ===== */
+.jx-back-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  position: fixed;
+  left: 1rem;
+  bottom: 1.2rem;
+  z-index: 89;
+  min-height: 2.65rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid rgba(47, 93, 78, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+  color: #f4f7f5;
+  background: rgba(47, 93, 78, 0.92);
+  box-shadow: 0 6px 20px rgba(26, 33, 30, 0.18);
+  font-family: var(--font-sans, sans-serif);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  opacity: 0.92;
+}
+
+.jx-back-fab:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  background: var(--jade-deep, #1e3d34);
+  box-shadow: 0 10px 26px rgba(26, 33, 30, 0.24);
+}
+
+.jx-back-fab__label {
+  display: inline-block;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
+  .jx-back-fab {
+    left: max(0.7rem, env(safe-area-inset-left));
+    bottom: max(0.85rem, env(safe-area-inset-bottom));
+    font-size: 0.85rem;
+    padding: 0.55rem 0.95rem;
+    min-height: 2.85rem;
+  }
+
+  /* 学习页有目录 FAB 时，目录往上挪一点避免重叠 */
+  body.has-back-fab .learn-toc-fab {
+    bottom: calc(4.3rem + max(0.85rem, env(safe-area-inset-bottom)));
+  }
+}

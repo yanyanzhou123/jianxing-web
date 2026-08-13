@@ -2059,7 +2059,8 @@ img {
 }
 
 /* ========== 自定义音频播放器 ==========
-   进度条独占第一行（拉满宽度），其他控件放第二行 */
+   进度条独占第一行（拉满宽度），其他控件放第二行
+   支持折叠：只留播放按钮 + 进度条 + 时间，一行搞定 */
 .jx-audio {
   --jx-audio-bg: rgba(247, 249, 248, 0.96);
   --jx-audio-border: rgba(47, 93, 78, 0.22);
@@ -2075,7 +2076,7 @@ img {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 0.85rem 0.95rem;
+  padding: 0.7rem 0.85rem 0.85rem;
   background: var(--jx-audio-bg);
   border: 1px solid var(--jx-audio-border);
   border-radius: 0.75rem;
@@ -2084,10 +2085,162 @@ img {
   color: var(--jx-audio-ink);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: padding 0.25s ease, gap 0.25s ease, background 0.25s ease;
+}
+
+/* 折叠头部：收起/展开按钮 + 倍速指示 */
+.jx-audio__head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-height: 0;
+  margin-bottom: -0.15rem;
+}
+
+.jx-audio__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--jx-audio-ink-soft);
+  font-family: var(--font-sans, system-ui);
+  font-size: 0.76rem;
+  line-height: 1.2;
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.jx-audio__toggle:hover {
+  color: var(--jx-audio-jade-deep);
+  background: rgba(47, 93, 78, 0.08);
+}
+
+.jx-audio__toggle-icon {
+  font-size: 0.85rem;
+  transition: transform 0.25s ease;
+  line-height: 1;
+}
+
+.jx-audio__head-rate {
+  display: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--jx-audio-jade);
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .jx-audio audio {
   display: none !important;
+}
+
+.jx-audio__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: opacity 0.25s ease, transform 0.25s ease, max-height 0.3s ease;
+  overflow: hidden;
+  max-height: 1000px;
+  opacity: 1;
+}
+
+/* ===== 折叠态：只保留「播放 + 进度条 + 时间 + 展开按钮」一行 ===== */
+.jx-audio.is-collapsed {
+  gap: 0;
+  padding: 0.45rem 0.75rem;
+  background: rgba(247, 249, 248, 0.88);
+}
+
+.jx-audio.is-collapsed .jx-audio__head {
+  margin-bottom: 0;
+  order: 3;
+}
+
+.jx-audio.is-collapsed .jx-audio__head-rate {
+  display: inline-block;
+}
+
+.jx-audio.is-collapsed .jx-audio__toggle-icon {
+  transform: rotate(180deg);
+}
+
+.jx-audio.is-collapsed .jx-audio__toggle-label::before {
+  content: attr(data-label-collapsed);
+}
+
+.jx-audio.is-collapsed .jx-audio__toggle-label {
+  font-size: 0;
+}
+
+.jx-audio.is-collapsed .jx-audio__body {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.jx-audio.is-collapsed .jx-audio__progress {
+  display: none !important;
+}
+
+.jx-audio.is-collapsed .jx-audio__controls {
+  display: none !important;
+}
+
+/* 折叠后播放控制 + 进度条 + 时间 + 按钮，合成一行紧凑条 */
+.jx-audio .jx-audio__compact {
+  display: none;
+}
+
+.jx-audio.is-collapsed .jx-audio__compact {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  width: 100%;
+  padding: 0.1rem 0;
+}
+
+.jx-audio__compact .jx-audio__progress {
+  display: grid !important;
+  grid-template-columns: 1fr;
+  grid-template-areas: "track";
+  gap: 0;
+  width: 100%;
+  padding: 0.2rem 0;
+}
+
+.jx-audio__compact .jx-audio__progress .jx-audio__progress-track {
+  grid-area: track;
+  height: 8px;
+}
+
+.jx-audio__compact .jx-audio__progress-thumb {
+  width: 14px;
+  height: 14px;
+}
+
+.jx-audio__compact .jx-audio__time--cur,
+.jx-audio__compact .jx-audio__time--dur {
+  display: none;
+}
+
+.jx-audio__compact .jx-audio__time-combo {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--jx-audio-ink-soft);
+  white-space: nowrap;
+}
+
+.jx-audio__compact .jx-audio__btn {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.78rem;
 }
 
 /* 第一行：进度条独占整行 */

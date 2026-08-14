@@ -1,6 +1,9 @@
 /
   Cache-Control: public, max-age=0, must-revalidate
 
+/api/*
+  Cache-Control: no-store
+
 /_astro/*
   Cache-Control: public, max-age=0, must-revalidate
 

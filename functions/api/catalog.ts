@@ -257,6 +257,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const res = json(body);
     if (lite) {
       res.headers.set('Cache-Control', 'public, max-age=60');
+    } else {
+      res.headers.set('Cache-Control', 'no-store');
     }
     return res;
   } catch (e) {

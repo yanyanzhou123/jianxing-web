@@ -18,12 +18,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 </BaseLayout>
 
 <link rel="stylesheet" href="/yantao.css?v=20260804e" />
-<script src="/jx-catalog.js?v=20260731e" defer></script>
+<script src="/jx-catalog.js?v=20260816e" defer></script>
 <script is:inline>
 document.addEventListener('DOMContentLoaded', async () => {
   const body = document.getElementById('ref-books-body');
   try {
-    const catalog = await JX.fetchCatalog();
+    const catalog = await JX.fetchCatalog({ lite: true });
     const refs = catalog.references || [];
     if (!refs.length) {
       body.innerHTML = '<p class="note">暂无参考书籍。</p>';

@@ -36,3 +36,7 @@
 
 /sw.js
   Cache-Control: public, max-age=0, must-revalidate
+
+/tools/*
+  Cache-Control: public, max-age=3600
+  Content-Disposition: attachment

@@ -29,6 +29,23 @@ Thumbs.db
 .wrangler/
 .dev.vars
 
+# 见行视频助手：构建产物与捆绑的 ffmpeg（体积大，勿提交）
+tools/jx-video-helper/ffmpeg/
+tools/jx-video-helper/dist/
+tools/jx-video-helper/build/
+tools/jx-video-helper/*.spec
+tools/jx-video-helper/__pycache__/
+tools/jx-video-helper/*.zip
+public/tools/*.exe
+public/tools/*.zip
+
+# 标清批处理：片源/产物/日志不入库，脚本可提交
+tools/jx-video-sd/src/
+tools/jx-video-sd/out/
+tools/jx-video-sd/*.log
+tools/jx-video-sd/done.tsv
+tools/jx-video-sd/catalog.json
+
 # R2 一键备份（密钥与便携工具，勿上传）
 tools/r2-backup/config.ini
 tools/r2-backup/rclone.conf

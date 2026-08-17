@@ -26,5 +26,5 @@ export function contentTypeForKey(key: string, fallback = 'application/octet-str
   }
 }
 
-/** Long cache for immutable lesson media (paths are stable). */
+/** Long cache for lesson media. Replacements must use a new object key. */
 export const MEDIA_CACHE_CONTROL = 'public, max-age=31536000, immutable';

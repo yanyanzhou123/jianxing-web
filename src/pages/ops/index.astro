@@ -10,6 +10,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p>
         学修为主要内容：左侧选模块，模块内为章节 → 课；进入课后再编辑文字、上传音视频。
         参考书籍与公众号好文在上方分区进入，属于材料区，不计入学修课表。
+        视频请先用
+        <a href="/api/download?path=media/jianxing-video-helper.zip">见行视频助手</a>
+        （Windows，解压整个文件夹）在电脑上检查处理后再上传，以免开播慢或苹果/微信播不了。
       </p>
     </div>
   </div>
@@ -120,9 +123,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   </section>
 </BaseLayout>
 
-<link rel="stylesheet" href="/ops-app.css?v=20260731g" />
+<link rel="stylesheet" href="/ops-app.css?v=20260816b" />
 <script type="module" src="/ops-video-compress.js?v=20260725i"></script>
-<script src="/ops-app.js?v=20260731g" defer></script>
+<script src="/ops-app.js?v=20260816d" defer></script>
 <script is:inline>
   // 问题反馈面板（独立于 ops-app.js，仅依赖登录 cookie）
   (() => {

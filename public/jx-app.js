@@ -157,7 +157,7 @@
       }
       const me = await api('/api/auth/me');
       const [catalog, progress] = await Promise.all([
-        JX.fetchCatalog(),
+        JX.fetchCatalog({ lite: true }),
         api('/api/progress'),
       ]);
       renderHome(me.user, catalog, progress);

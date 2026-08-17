@@ -182,11 +182,13 @@
 
   function assetUrl(path) {
     if (!path) return '';
-    if (/^https?:\/\//.test(path)) return path;
+    const rev = '20260816';
+    const withRev = (url) => (url.includes('?') ? `${url}&v=${rev}` : `${url}?v=${rev}`);
+    if (/^https?:\/\//.test(path)) return withRev(path);
     const base =
       document.querySelector('meta[name="r2-base"]')?.content?.replace(/\/$/, '') || '';
     if (!base) return '';
-    return `${base}/${path.replace(/^\//, '')}`;
+    return withRev(`${base}/${path.replace(/^\//, '')}`);
   }
 
   function showMsg(el, text, ok) {
@@ -238,6 +240,22 @@
 
   const MULTIPART_THRESHOLD = 20 * 1024 * 1024;
   const PART_SIZE = 8 * 1024 * 1024;
+
+  function mediaExt(file, fallback) {
+    const name = String(file?.name || '');
+    if (name.includes('.')) {
+      const ext = name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (ext) return ext;
+    }
+    return fallback;
+  }
+
+  /** 每次上传用新 key，长缓存才不会命中旧文件 */
+  function versionedKey(dirAndStem, ext) {
+    const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const stem = String(dirAndStem || 'file').replace(/\/+$/, '');
+    return `${stem}-${stamp}.${ext}`;
+  }
 
   function mimeForUpload(key, file) {
     const name = String(key || file?.name || '').toLowerCase();
@@ -1137,7 +1155,7 @@
       const input = $('ref-upload');
       const file = input?.files?.[0];
       if (!file) return;
-      const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'pdf';
+      const ext = mediaExt(file, 'pdf');
       const safe =
         file.name
           .replace(/\.[^.]+$/, '')
@@ -1146,7 +1164,7 @@
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, '')
           .slice(0, 48) || `book-${uid('b')}`;
-      const key = ref.path || `books/${safe}.${ext}`;
+      const key = versionedKey(`books/${safe}`, ext);
       ref.path = key;
       const status = $('ref-upload-status');
       const progress = $('ref-progress');
@@ -1442,6 +1460,7 @@
             text: '',
             audioPath: '',
             videoPath: '',
+            videoPathSd: '',
           });
           setDirty(true);
           renderEditor();
@@ -1696,7 +1715,8 @@
             <p class="ops-label" style="margin:0;">视频</p>
             ${hasVideo ? '<span class="ops-status is-ok">已上传</span>' : '<span class="ops-status">未上传</span>'}
           </div>
-          <label class="ops-field">存储路径<input id="les-video-path" value="${escapeHtml(les.videoPath || '')}" /></label>
+          <label class="ops-field">高清路径<input id="les-video-path" value="${escapeHtml(les.videoPath || '')}" /></label>
+          <label class="ops-field">标清路径<input id="les-video-sd-path" value="${escapeHtml(les.videoPathSd || '')}" /></label>
           ${
             hasVideo && videoUrl
               ? `<div class="ops-preview"><video controls playsinline webkit-playsinline x5-playsinline preload="metadata" src="${escapeHtml(videoUrl)}"></video>
@@ -1715,8 +1735,10 @@
               <span>同时压画面到 720p（很慢，200MB 可能要几十分钟）</span>
             </label>
             <p class="ops-hint">
-              建议：用小程序或电脑软件先转成 <strong>H.264 + AAC</strong> 再上传（更快、苹果微信才有声音）。
-              上面两项为网页备用，默认不勾选；勾选后首次还需下载约 25MB 组件，大视频请耐心等待或改用软件处理。
+              请先用电脑上的
+              <a href="/api/download?path=media/jianxing-video-helper.zip">见行视频助手</a>
+              检查并处理好再上传（<a href="/tools/使用说明.txt" target="_blank" rel="noopener">说明</a>）。
+              目标是开播快、苹果/微信能看有声；能不转码就不转码。下面两项是网页备用，默认不用勾。
             </p>
             <input type="file" accept="video/*,.mp4" id="upload-video" />
             <div class="ops-upload-status" id="video-upload-status" hidden></div>
@@ -1746,6 +1768,10 @@
       les.videoPath = e.target.value;
       setDirty(true);
     });
+    $('les-video-sd-path')?.addEventListener('input', (e) => {
+      les.videoPathSd = e.target.value;
+      setDirty(true);
+    });
 
     bindUpload('audio', mod, les);
     bindUpload('video', mod, les);
@@ -1771,21 +1797,121 @@
     }
   }
 
+  function readAscii(buf) {
+    const u8 = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+    return s;
+  }
+
+  async function inspectVideoFile(file) {
+    const headSize = Math.min(file.size, 65536);
+    const tailSize = Math.min(file.size, 2 * 1024 * 1024);
+    const head = readAscii(await file.slice(0, headSize).arrayBuffer());
+    const tail =
+      file.size > headSize
+        ? readAscii(await file.slice(Math.max(0, file.size - tailSize)).arrayBuffer())
+        : head;
+    const all = head + tail;
+    const moov = head.indexOf('moov');
+    const mdat = head.indexOf('mdat');
+    const faststart = moov >= 0 && (mdat < 0 || moov < mdat);
+    const hevc = /hvc1|hev1|hvcC/.test(all);
+    const avc = /avc1|avcC/.test(all);
+    const aac = /mp4a/.test(all);
+    const looksMp4 = /ftyp/.test(head);
+    let action = 'ready';
+    let title = '已适合上传';
+    let risk = '';
+    if (!looksMp4) {
+      action = 'transcode';
+      title = '转码为 H.264 + AAC';
+      risk = '当前不像常见 MP4，苹果/微信可能播不了，开播也可能很慢';
+    } else if (hevc && !avc) {
+      action = 'transcode';
+      title = '转成 H.264（现在是 H.265）';
+      risk = 'H.265 在苹果和微信网页里经常播不了';
+    } else if (avc && !aac) {
+      action = 'audio';
+      title = '只转音轨为 AAC';
+      risk = '苹果/微信里可能没有声音';
+    } else if (avc && aac && !faststart) {
+      action = 'faststart';
+      title = '加上 faststart';
+      risk = '开播会很慢（索引在文件尾，往往要先下载大半个文件）';
+    } else if (!avc) {
+      action = 'transcode';
+      title = '转码为 H.264 + AAC';
+      risk = '编码不确定，学员设备可能播不了或开播很慢';
+    } else if (!faststart) {
+      action = 'faststart';
+      title = '加上 faststart';
+      risk = '开播可能较慢';
+    }
+    return { action, title, risk, faststart };
+  }
+
+  function confirmVideoAdvice(report) {
+    return new Promise((resolve) => {
+      const prev = document.getElementById('ops-video-advice');
+      if (prev) prev.remove();
+      const box = document.createElement('div');
+      box.id = 'ops-video-advice';
+      box.className = 'ops-modal';
+      box.innerHTML = `
+        <div class="ops-modal__card" role="dialog" aria-labelledby="ops-video-advice-title">
+          <h3 id="ops-video-advice-title">建议先用见行视频助手处理</h3>
+          <p>检查结果：建议<strong>${escapeHtml(report.title)}</strong>后再上传，以免${escapeHtml(report.risk)}。</p>
+          <p>请先下载 Windows 工具，在电脑上转好，再上传生成的「原名-见行上传.mp4」。若执意上传原文件，仍可以继续。</p>
+          <div class="ops-modal__actions">
+            <a class="btn btn--solid" style="color:#f4f7f5;" href="/api/download?path=media/jianxing-video-helper.zip">下载见行视频助手</a>
+            <button type="button" class="btn" data-act="upload" style="color:inherit;border-color:var(--line);">仍要上传</button>
+            <button type="button" class="btn" data-act="cancel" style="color:inherit;border-color:var(--line);">取消</button>
+          </div>
+        </div>`;
+      const finish = (v) => {
+        box.remove();
+        resolve(v);
+      };
+      box.addEventListener('click', (e) => {
+        if (e.target === box) finish('cancel');
+        const act = e.target?.getAttribute?.('data-act');
+        if (act === 'upload' || act === 'cancel') finish(act);
+      });
+      document.body.appendChild(box);
+    });
+  }
+
   function bindUpload(kind, mod, les) {
     const input = $(`upload-${kind}`);
     if (!input) return;
     input.addEventListener('change', async () => {
       let file = input.files?.[0];
       if (!file) return;
+      if (kind === 'video') {
+        try {
+          const report = await inspectVideoFile(file);
+          if (report.action !== 'ready') {
+            const choice = await confirmVideoAdvice(report);
+            if (choice !== 'upload') {
+              input.value = '';
+              return;
+            }
+          }
+        } catch (e) {
+          const ok = confirm(
+            `无法自动检查该视频（${e.message || e}）。\n建议先下载「见行视频助手」处理后再传。\n仍要直接上传吗？`,
+          );
+          if (!ok) {
+            input.value = '';
+            return;
+          }
+        }
+      }
       const field = kind === 'audio' ? 'audioPath' : 'videoPath';
       const wantCompress = kind === 'video' && $('video-compress')?.checked;
-      const ext =
-        kind === 'video'
-          ? 'mp4'
-          : file.name.includes('.')
-            ? file.name.split('.').pop()
-            : 'mp3';
-      const key = les[field] || `${mod.slug}/${les.slug}.${ext}`;
+      const ext = kind === 'video' ? 'mp4' : mediaExt(file, 'mp3');
+      const key = versionedKey(`${mod.slug}/${les.slug}`, ext);
       les[field] = key;
 
       try {

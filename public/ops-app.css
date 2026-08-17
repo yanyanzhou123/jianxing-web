@@ -694,3 +694,36 @@
   background: var(--jade);
   transition: width 0.15s ease;
 }
+
+.ops-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(30, 40, 36, 0.45);
+}
+.ops-modal__card {
+  width: min(32rem, 100%);
+  padding: 1.15rem 1.2rem 1.2rem;
+  border-radius: 0.55rem;
+  background: #f7faf8;
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 40px rgba(30, 61, 52, 0.18);
+}
+.ops-modal__card h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+}
+.ops-modal__card p {
+  margin: 0 0 0.7rem;
+  line-height: 1.55;
+}
+.ops-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}

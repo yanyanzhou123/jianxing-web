@@ -54,6 +54,18 @@ huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，P
 
 ## 版本
 
+**v1.3.5**（2026-08-17）
+
+相对 v1.3.4 的主要变化（国内打开变慢、视频首播、标清档）：
+
+- 列表页改拉 `/api/catalog?lite=1`（约几十 KB，缓存 120 秒），不再每次拉完整课表（约 2MB、`no-store`）；学习页用 lite + `/api/catalog?mod=&id=` 只取一课正文
+- 课字段增加 `videoPathSd`；学习页有标清时默认播标清，可切高清；下载页同时列出两档；运营后台可看/改标清路径
+- Windows「见行视频助手」：本机检查编码，按需 faststart / 转 AAC / 转 H.264，默认不压画；安装包在 R2 `media/jianxing-video-helper.zip`
+- 既有高清课批量转 480p + AAC 128k + faststart，写回 `videoPathSd`（批处理仍在本机跑，进度见下方专节）
+- `package.json` 版本 **1.3.5**
+
+方案、批处理进度与后续计划见下方「视频播放、标清与国内访问」。
+
 **v1.3.4**（2026-08-11）
 
 相对 v1.3.3 的主要变化（问题反馈 + 域名接入调整）：
@@ -195,6 +207,70 @@ huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，P
 
 ---
 
+## 视频播放、标清与国内访问（2026-08 方案）
+
+学员约 200 人、多数在国内。页面走 `jianxing.win`（Cloudflare Pages）或 `www.jianxing.xin`（阿里云 Nginx 反代到 Pages）。音视频在 R2 桶 `jianxing-files`，公开域 `https://media.jianxing.win`。
+
+### 结论（先读这段）
+
+1. **国内听课慢，主因是 R2 / Cloudflare 在境外**，不是播放器坏了。给 MP4 加 faststart，现代浏览器用 Range 也能找到 `moov`，对国内吞吐帮助很小。
+2. **慧灯**（`zen.renyun.org`）不是 Cloudflare Stream，而是 S3 + CloudFront，多档 MP4，播放器**默认 480p**。见行采用同一思路：保留高清，另存标清，默认标清。
+3. **宗教类视频不要长期放在大陆 OSS / 国内 CDN**。国内机只做备案反代和网页，片源仍放 R2。
+4. **不要在现有阿里云 2c2g（`jianxing.xin` 反代机）上跑 ffmpeg**：试过会 OOM 宕机。
+5. 从国内电脑或上海 ECS 拉 R2 都慢。以后若要「上传高清就不管」，更合适的是 **靠近 R2 的海外 VPS** 常驻转码（约 30–50 元/月，2–4 核 / 4–8G），片不落大陆盘。
+
+### 已落地
+
+| 项 | 做法 |
+|------|------|
+| 目录体积 | `GET /api/catalog?lite=1` 去掉课文；`GET /api/catalog?mod=&id=` 返回单课。首页 / 学修 / 课列表 / 下载走 lite；学习页再拉正文；运营仍用完整目录 |
+| 标清字段 | `lessons[].videoPathSd`，lite 目录会带上；`flattenLesson` 会保留 |
+| 学习页 | 有标清则默认标清，工具条「标清 / 高清」；无标清仍播高清 |
+| 下载页 | 高清、标清分列 |
+| 运营 | 课编辑显示高清路径 + 标清路径 |
+| 见行视频助手 | `tools/jx-video-helper/jx_video_helper.py`（Python 3.6 可跑）；打包脚本 `build.ps1`；说明见 `tools/jx-video-helper/使用说明.txt`。exe 不入库，运营从 `/api/download?path=media/jianxing-video-helper.zip` 下。SmartScreen 提示消不掉，除非购买代码签名证书 |
+| 旧课标清 | 本机脚本 `tools/jx-video-sd/run.ps1`：curl 下高清 → ffmpeg 480p → 上传 `*-sd.mp4` → 改 `config/catalog.json` 的 `videoPathSd` 并 `rev+1` |
+
+标清转码参数：`scale=-2:480`、`libx264` veryfast CRF 26、AAC 128k、`+faststart`。
+
+### 23 课标清批处理进度（2026-08-17 上午）
+
+对象：当时还没有 `videoPathSd` 的既有视频，共 23 个。
+
+| 状态 | 课 |
+|------|------|
+| 已完成并写进目录 | 12 课：含《佛子行》第 1–12 课，以及 `done.tsv` 里的一轮回课。线上刷新后应能看到标清/高清 |
+| 进行中 | 《佛子行》第十三课（`mod-1n1ezwq/lesson-l-js5r8ca.mp4`）。2026-08-16 21:11 开始用 curl 下 374MB，17 日 08:55 第一次失败（curl 56），续传后 08:56 下完约 392MB，已开始转码 |
+| 未做 | 《佛子行》第十四课；《信心之音》第 1–8 课；《上师瑜伽·速赐加持》第 1 课（还剩 10 个，加上第 13 课共 11 个） |
+
+脚本会跳过目录里已有 `videoPathSd` 的课，以及 `tools/jx-video-sd/done.tsv` 里的 slug。片源、产物、日志在 `tools/jx-video-sd/` 本地目录，**不入库**。
+
+**续跑（本机 PowerShell）：**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "tools\jx-video-sd\run.ps1"
+```
+
+依赖：`tools/jx-video-helper/ffmpeg/ffmpeg.exe`、`node_modules/.bin/wrangler.cmd`、已登录 Wrangler。下载优先 `https://media.jianxing.win/<key>`，失败再 `wrangler r2 object get`。每课大约 15–40 分钟（国内下 R2 经常更久）。**批处理跑的时候不要在运营后台改课表。**
+
+### 试过、明确不采用的
+
+- 只靠 faststart / 重封装解决国内慢：测过信心之音课 1（已 faststart）和课 2（moov 在尾），体积都约 350MB，国内体感差不多。
+- Cloudflare Stream：能自动 HLS，但仍是境外，按存储和流量计费，还要换播放器，和慧灯那套也不是一回事。
+- 国内 OSS + 国内 CDN：国内最快，但片会长期落在大陆，不做。
+- 备案反代机上转码：2c2g 会崩。
+- 每次开一台按量 ECS 转完就删：和用自己电脑差不多，除非用 API 自动开/关，才算「自动」。
+
+### 后续计划
+
+1. **先做完这 23 课标清**（续跑 `run.ps1`）。全部完成后抽一课《信心之音》看标清/高清和起播。
+2. **新课**：师兄用见行视频助手在本机处理好再上传；有标清就填 `videoPathSd`，学员默认标清。
+3. **海外转码机（未做，需要时再上）**：R2 附近 VPS，上传高清后自动出 480p 并写目录。片不进大陆盘。现有阿里云机继续只做 `.xin` 反代。
+4. **HLS / Stream**：标清默认仍不够再评估；不是当前第一步。
+5. **视频助手 SmartScreen**：不买证书就无法从根上去掉「已保护你的电脑」，继续让师兄点「仍要运行」。
+
+---
+
 ## 技术栈
 
 | 层级 | 技术 |
@@ -212,9 +288,11 @@ src/pages/              前台：首页、学修、学习页、研讨、参考�
 src/pages/yantao/       研讨（考问 / 圆桌）
 src/pages/reference/    参考资料枢纽 + books / articles
 public/ops-app.js       运营后台逻辑
-public/jx-catalog.js    前台目录与学修分区
+public/jx-catalog.js    前台目录与学修分区（列表走 lite）
 public/jx-ask.js        见行解惑
 public/yantao-*.js      研讨前台
+tools/jx-video-helper/  见行视频助手源码（exe / ffmpeg 不入库）
+tools/jx-video-sd/      旧课转标清脚本（片源不入库）
 android/                Capacitor 安卓工程
 functions/api/          auth / progress / ask / cards / catalog / articles / passages / yantao / upload*
 functions/_lib/         deepseek / passages / yantao / cards / auth 等
@@ -266,7 +344,7 @@ catalog.json
 └── modules[]             # 大模块
     ├── section / sectionGroup   # 可选，学修分区
     └── chapters[]
-        └── lessons[]     # text / audioPath / videoPath
+        └── lessons[]     # text / audioPath / videoPath / videoPathSd（可选标清）
 
 article-collections.json  # 公众号好文（独立于课表）
 ```
@@ -287,5 +365,5 @@ npm install
 cp .env.example .env   # 自行填入 PUBLIC_R2_BASE
 ```
 
-读完本 README「版本 → v1.3.3」与 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
+读完本 README「版本 → v1.3.5」、下文「视频播放、标清与国内访问」，以及 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
 线上目录与媒体在 R2，不在本仓库二进制里。部署到 Cloudflare 需已登录 Wrangler，并具备 Pages / R2 / D1 / AI / Vectorize 权限。

@@ -15,12 +15,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260804b" defer></script>
+  <script src="/jx-catalog.js?v=20260816e" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const body = document.getElementById('dl-body');
     try {
-      const catalog = await JX.fetchCatalog();
+      const catalog = await JX.fetchCatalog({ lite: true });
       const groups = [];
 
       const refRows = (catalog.references || []).map((ref) => ({
@@ -37,7 +37,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             if (les.audioPath)
               rows.push({ name: `${les.title} · 音频`, type: '音频', path: les.audioPath });
             if (les.videoPath)
-              rows.push({ name: `${les.title} · 视频`, type: '视频', path: les.videoPath });
+              rows.push({ name: `${les.title} · 高清视频`, type: '视频', path: les.videoPath });
+            if (les.videoPathSd)
+              rows.push({ name: `${les.title} · 标清视频`, type: '视频', path: les.videoPathSd });
           }
         }
         if (rows.length) groups.push({ title: mod.title, rows });

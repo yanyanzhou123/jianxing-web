@@ -15,7 +15,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </article>
 
-  <script src="/jx-catalog.js?v=20260804d" defer></script>
+  <script src="/jx-catalog.js?v=20260816e" defer></script>
   <script src="/jx-progress.js?v=20260730g" defer></script>
   <script src="/jx-back-fab.js?v=20260813a" defer></script>
   <script is:inline>
@@ -60,12 +60,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         } catch (_) {}
       })();
 
-      const catalog = await JX.fetchCatalog();
+      const [catalog, detail] = await Promise.all([
+        JX.fetchCatalog({ lite: true }),
+        JX.fetchLesson(moduleSlug, id).catch(() => null),
+      ]);
       const found = JX.findLesson(catalog, moduleSlug, id);
       if (!found) {
         root.innerHTML = `<p>未找到课程。</p><p><a href="${JX.moduleHref(moduleSlug)}">返回目录</a></p>`;
         return;
       }
+      if (detail?.lesson) Object.assign(found.lesson, detail.lesson);
 
       const { mod, chapter, lesson, lessonsFlat } = found;
       document.title = `${lesson.title} · 见行修学`;
@@ -74,7 +78,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       document.getElementById('lesson-summary').textContent = lesson.summary || '';
       document.getElementById('lesson-meta').textContent = JX.formatLessonMeta(lesson);
 
-      const hasVideo = !!(lesson.videoPath && String(lesson.videoPath).trim());
+      const hasVideo = !!(
+        (lesson.videoPath && String(lesson.videoPath).trim()) ||
+        (lesson.videoPathSd && String(lesson.videoPathSd).trim())
+      );
       const hasAudio = !!(lesson.audioPath && String(lesson.audioPath).trim());
       const hasText = !!(lesson.text && String(lesson.text).trim());
 
@@ -225,16 +232,32 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       function panelBody(kind) {
         if (kind === 'video') {
-          const err = mediaEmpty('video', lesson.videoPath);
+          const hdPath = String(lesson.videoPath || '').trim();
+          const sdPath = String(lesson.videoPathSd || '').trim();
+          const defaultPath = sdPath || hdPath;
+          const err = mediaEmpty('video', defaultPath);
           if (err) return err;
-          const url = JX.assetUrl(lesson.videoPath);
+          const hdUrl = hdPath ? JX.assetUrl(hdPath) : '';
+          const sdUrl = sdPath ? JX.assetUrl(sdPath) : '';
+          const startUrl = sdUrl || hdUrl;
+          const canSwitch = !!(hdUrl && sdUrl);
+          const hint = canSwitch
+            ? '默认标清，打开更快。网较好时可切高清。'
+            : '大文件首次播放可能需要十几秒，请稍候。建议在 Wi‑Fi 下观看；同一课再次打开通常会更快。';
+          const qualityBar = canSwitch
+            ? `<div class="learn-quality" role="group" aria-label="清晰度">
+                <button type="button" class="learn-quality__btn is-on" data-q="sd">标清</button>
+                <button type="button" class="learn-quality__btn" data-q="hd">高清</button>
+              </div>`
+            : '';
           return `
-            <div class="learn-video-wrap">
-              <p class="learn-media-hint">大文件首次播放可能需要十几秒，请稍候。建议在 Wi‑Fi 下观看；同一课再次打开通常会更快。</p>
+            <div class="learn-video-wrap" data-hd="${JX.escape(hdUrl)}" data-sd="${JX.escape(sdUrl)}">
+              <div class="learn-video-toolbar">
+                <p class="learn-media-hint">${hint}</p>
+                ${qualityBar}
+              </div>
               <div class="learn-video">
-                <video controls playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" preload="none">
-                  <source src="${url}" type="video/mp4" />
-                </video>
+                <video controls playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" preload="none" src="${JX.escape(startUrl)}"></video>
                 <div class="learn-video-status" hidden aria-live="polite"></div>
               </div>
             </div>`;
@@ -861,9 +884,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       }
 
       function bindVideoStatus(panel) {
+        const wrap = panel.querySelector('.learn-video-wrap');
         const video = panel.querySelector('video');
         const status = panel.querySelector('.learn-video-status');
         if (!video || !status) return;
+
+        const hdUrl = wrap?.getAttribute('data-hd') || '';
+        const sdUrl = wrap?.getAttribute('data-sd') || '';
+        let quality = sdUrl ? 'sd' : 'hd';
 
         let loading = false;
         const setStatus = (text, mode) => {
@@ -882,6 +910,29 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           loading = true;
           setStatus(msg || '正在加载视频，大文件约需十几秒，请稍候…', 'loading');
         };
+
+        wrap?.querySelectorAll('.learn-quality__btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const next = btn.getAttribute('data-q');
+            const url = next === 'sd' ? sdUrl : hdUrl;
+            if (!next || !url || next === quality) return;
+            const t = video.currentTime || 0;
+            const wasPaused = video.paused;
+            quality = next;
+            wrap.querySelectorAll('.learn-quality__btn').forEach((b) => {
+              b.classList.toggle('is-on', b.getAttribute('data-q') === next);
+            });
+            showLoading('正在切换清晰度…');
+            video.src = url;
+            video.load();
+            const onMeta = () => {
+              video.removeEventListener('loadedmetadata', onMeta);
+              if (t > 0 && Number.isFinite(t)) video.currentTime = t;
+              if (!wasPaused) video.play().catch(() => {});
+            };
+            video.addEventListener('loadedmetadata', onMeta);
+          });
+        });
 
         const updateProgress = () => {
           if (!loading) return;

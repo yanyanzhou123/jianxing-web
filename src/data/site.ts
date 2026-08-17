@@ -14,10 +14,14 @@ export const site = {
   icpNo: '京ICP备2026033921号-2',
 };
 
+const MEDIA_REV = '20260816';
+
 export function assetUrl(path: string) {
   if (!path) return '';
-  if (path.startsWith('http')) return path;
+  const withRev = (url: string) =>
+    url.includes('?') ? `${url}&v=${MEDIA_REV}` : `${url}?v=${MEDIA_REV}`;
+  if (path.startsWith('http')) return withRev(path);
   const clean = path.replace(/^\//, '');
   if (!R2_BASE) return '';
-  return `${R2_BASE}/${clean}`;
+  return withRev(`${R2_BASE}/${clean}`);
 }

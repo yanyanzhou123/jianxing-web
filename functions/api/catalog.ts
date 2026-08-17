@@ -35,12 +35,14 @@ function flattenLesson(les: any) {
       text: '',
       audioPath: '',
       videoPath: '',
+      videoPathSd: '',
     };
   }
 
   let text = typeof les.text === 'string' ? les.text : '';
   let audioPath = typeof les.audioPath === 'string' ? les.audioPath : '';
   let videoPath = typeof les.videoPath === 'string' ? les.videoPath : '';
+  let videoPathSd = typeof les.videoPathSd === 'string' ? les.videoPathSd : '';
 
   if (Array.isArray(les.segments) && les.segments.length) {
     const segs = les.segments;
@@ -76,6 +78,7 @@ function flattenLesson(les: any) {
     text,
     audioPath,
     videoPath,
+    videoPathSd,
   };
 }
 
@@ -196,35 +199,68 @@ function isSubstantialLessonText(text: string, hasSegText = false): boolean {
   return false;
 }
 
-/** 选课列表用：去掉正文，体积小很多 */
+function lessonHasText(les: any): boolean {
+  const text = typeof les?.text === 'string' ? les.text.trim() : '';
+  const segText = Array.isArray(les?.segments)
+    ? les.segments
+        .map((s: any) => String(s?.text || '').trim())
+        .filter(Boolean)
+        .join('\n\n')
+    : '';
+  return isSubstantialLessonText(text || segText, segText.length > 0);
+}
+
+function findLessonInCatalog(data: any, moduleSlug: string, lessonSlug: string) {
+  const mod = (data?.modules || []).find((m: any) => m.slug === moduleSlug);
+  if (!mod) return null;
+  for (const ch of mod.chapters || []) {
+    const lesson = (ch.lessons || []).find((l: any) => l.slug === lessonSlug);
+    if (lesson) return { mod, chapter: ch, lesson };
+  }
+  return null;
+}
+
+/** 列表页用：去掉课文正文，体积小很多 */
 function liteCatalog(data: any) {
   return {
     version: data?.version || 4,
     rev: Number(data?.rev) || 0,
-    modules: (data?.modules || []).map((mod: any) => ({
-      slug: mod.slug,
-      title: mod.title,
-      status: mod.status,
-      chapters: (mod.chapters || []).map((ch: any) => ({
-        title: ch.title,
-        lessons: (ch.lessons || []).map((les: any) => {
-          const text = typeof les.text === 'string' ? les.text.trim() : '';
-          const segText = Array.isArray(les.segments)
-            ? les.segments
-                .map((s: any) => String(s?.text || '').trim())
-                .filter(Boolean)
-                .join('\n\n')
-            : '';
-          const hasSeg = segText.length > 0;
-          const combined = text || segText;
-          return {
+    references: data?.references || [],
+    modules: (data?.modules || []).map((mod: any) => {
+      const out: any = {
+        id: mod.id,
+        slug: mod.slug,
+        title: mod.title,
+        shortTitle: mod.shortTitle || mod.title,
+        summary: mod.summary || '',
+        status: mod.status,
+        statusLabel: mod.statusLabel || '',
+        intro: mod.intro || '',
+        chapters: (mod.chapters || []).map((ch: any) => ({
+          id: ch.id,
+          title: ch.title,
+          lessons: (ch.lessons || []).map((les: any) => ({
+            id: les.id,
             slug: les.slug,
             title: les.title,
-            hasText: isSubstantialLessonText(combined, hasSeg),
-          };
-        }),
-      })),
-    })),
+            summary: les.summary || '',
+            audioPath: les.audioPath || '',
+            videoPath: les.videoPath || '',
+            videoPathSd: les.videoPathSd || '',
+            hasText: lessonHasText(les),
+          })),
+        })),
+      };
+      if (mod.section != null && String(mod.section).trim() !== '') {
+        out.section = String(mod.section).trim();
+      }
+      if (out.section && out.section !== '未归类' && mod.sectionGroup) {
+        out.sectionGroup = String(mod.sectionGroup).trim();
+      }
+      if (mod.track) out.track = mod.track;
+      if (mod.pathOrder != null && mod.pathOrder !== '') out.pathOrder = mod.pathOrder;
+      return out;
+    }),
   };
 }
 
@@ -252,11 +288,26 @@ async function backupCurrent(env: Env, raw: unknown, rev: number) {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const data = await readCatalog(context.env, context.request);
-    const lite = new URL(context.request.url).searchParams.get('lite') === '1';
+    const url = new URL(context.request.url);
+    const lite = url.searchParams.get('lite') === '1';
+    const modSlug = (url.searchParams.get('mod') || '').trim();
+    const lessonSlug = (url.searchParams.get('id') || '').trim();
+
+    if (modSlug && lessonSlug) {
+      const found = findLessonInCatalog(data, modSlug, lessonSlug);
+      if (!found) return json({ error: '未找到课程' }, 404);
+      const res = json({
+        rev: Number(data?.rev) || 0,
+        lesson: found.lesson,
+      });
+      res.headers.set('Cache-Control', 'public, max-age=60');
+      return res;
+    }
+
     const body = lite ? liteCatalog(data) : data;
     const res = json(body);
     if (lite) {
-      res.headers.set('Cache-Control', 'public, max-age=60');
+      res.headers.set('Cache-Control', 'public, max-age=120');
     } else {
       res.headers.set('Cache-Control', 'no-store');
     }

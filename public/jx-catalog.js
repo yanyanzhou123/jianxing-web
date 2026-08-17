@@ -1,15 +1,24 @@
-/* jx-catalog v20260726i — stairs without step nums, larger chapter text */
+/* jx-catalog v20260816e — HD/SD video paths */
 window.JX = window.JX || {};
+
+/** 播放地址加版本，避开浏览器对旧 URL 的一年 immutable 缓存 */
+JX.MEDIA_REV = '20260816';
 
 JX.r2Base = () =>
   document.querySelector('meta[name="r2-base"]')?.content?.replace(/\/$/, '') || '';
 
+JX.withMediaRev = (url) => {
+  if (!url) return '';
+  if (/[?&]v=/.test(url)) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}v=${JX.MEDIA_REV}`;
+};
+
 JX.assetUrl = (path) => {
   if (!path) return '';
-  if (/^https?:\/\//.test(path)) return path;
+  if (/^https?:\/\//.test(path)) return JX.withMediaRev(path);
   const base = JX.r2Base();
   if (!base) return '';
-  return `${base}/${path.replace(/^\//, '')}`;
+  return JX.withMediaRev(`${base}/${path.replace(/^\//, '')}`);
 };
 
 /** 模块列表页（可配置 slug，不再写死 /lunhui/ 等） */
@@ -35,9 +44,23 @@ JX.downloadHref = (path) => {
   return `/api/download?path=${encodeURIComponent(String(path).replace(/^\//, ''))}`;
 };
 
-JX.fetchCatalog = async () => {
-  const res = await fetch('/api/catalog');
+JX.fetchCatalog = async (opts) => {
+  const lite = !!(opts && opts.lite);
+  if (lite && JX._liteCatalog) return JX._liteCatalog;
+  const res = await fetch(lite ? '/api/catalog?lite=1' : '/api/catalog');
   if (!res.ok) throw new Error('无法加载课程目录');
+  const data = await res.json();
+  if (lite) JX._liteCatalog = data;
+  return data;
+};
+
+JX.fetchLesson = async (moduleSlug, lessonSlug) => {
+  const qs = new URLSearchParams({
+    mod: moduleSlug || '',
+    id: lessonSlug || '',
+  });
+  const res = await fetch(`/api/catalog?${qs}`);
+  if (!res.ok) throw new Error('无法加载课文');
   return res.json();
 };
 
@@ -371,9 +394,9 @@ JX.renderPathMore = () => `
   </li>`;
 
 JX.formatLessonMeta = (lesson) => {
-  const texts = lesson.text?.trim() ? 1 : 0;
+  const texts = lesson.text?.trim() || lesson.hasText ? 1 : 0;
   const audios = lesson.audioPath?.trim() ? 1 : 0;
-  const videos = lesson.videoPath?.trim() ? 1 : 0;
+  const videos = (lesson.videoPath?.trim() || lesson.videoPathSd?.trim()) ? 1 : 0;
   return `文 ${texts} · 音 ${audios} · 视 ${videos}`;
 };
 

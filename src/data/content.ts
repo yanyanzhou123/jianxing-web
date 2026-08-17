@@ -8,6 +8,7 @@ export type Lesson = {
   text: string;
   audioPath: string;
   videoPath: string;
+  videoPathSd?: string;
 };
 
 export type Chapter = {
@@ -54,7 +55,7 @@ export function lessonCount(mod: LearningModule) {
 export function formatLessonMeta(lesson: Lesson) {
   const texts = lesson.text?.trim() ? 1 : 0;
   const audios = lesson.audioPath?.trim() ? 1 : 0;
-  const videos = lesson.videoPath?.trim() ? 1 : 0;
+  const videos = (lesson.videoPath?.trim() || lesson.videoPathSd?.trim()) ? 1 : 0;
   return `文 ${texts} · 音 ${audios} · 视 ${videos}`;
 }
 

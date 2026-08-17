@@ -12,7 +12,7 @@
   let articleCollections = [];
   let articlesRev = 0;
   let moduleIndex = 0;
-  /** @type {'module' | 'refs' | 'articles'} */
+  /** @type {'module' | 'refs' | 'articles' | 'feedback'} */
   let sideMode = 'module';
   /** @type {'structure' | 'lesson'} */
   let view = 'structure';
@@ -32,6 +32,9 @@
   let navFilterReady = false;
   let modSearch = '';
   let modStatusFilter = 'all';
+  const CATALOG_CACHE_KEY = 'jx-ops-catalog-v1';
+  let catalogFull = false;
+  let catalogFullPromise = null;
 
   /** 与前台学修分区一致 */
   const OPS_SECTIONS = [
@@ -205,6 +208,10 @@
 
   function refreshDirtyBanner() {
     if (!dirtyBanner) return;
+    if (sideMode === 'feedback') {
+      dirtyBanner.hidden = true;
+      return;
+    }
     if (sideMode === 'articles') {
       dirtyBanner.hidden = !articlesDirty;
       dirtyBanner.textContent = '公众号好文有未保存修改，请点「保存好文」（与学修课表分开保存）。';
@@ -324,6 +331,18 @@
   async function saveCatalog(opts = {}) {
     const { silent = false, reason = '', force = false } = opts;
     if (saving) return;
+    if (!catalogFull && catalogFullPromise) {
+      if (!silent) showMsg(saveMsg, '课文仍在加载，请稍候…', true);
+      try {
+        await catalogFullPromise;
+      } catch {
+        /* hydrate 已提示 */
+      }
+    }
+    if (!catalogFull) {
+      showMsg(saveMsg, '课表尚未加载完成，请稍后再保存。', false);
+      return;
+    }
     saving = true;
     try {
       if (!silent) showMsg(saveMsg, '保存中…', true);
@@ -344,6 +363,7 @@
       });
       if (result?.rev != null) catalog.rev = result.rev;
       setDirty(false);
+      writeCatalogCache(catalog);
       const backupHint = result?.backedUp ? '（已自动备份上一版）' : '';
       const msg = (reason || '已保存。前台刷新即可看到变化。') + backupHint;
       showMsg(saveMsg, msg, true);
@@ -356,7 +376,7 @@
             `${e.message || '目录已被他人更新。'}\n\n是否重新加载服务器目录？\n（当前未保存的本地修改将丢失）`,
           )
         ) {
-          await loadCatalog();
+          await loadCatalog({ force: true });
         }
         throw e;
       }
@@ -430,13 +450,64 @@
     }
   }
 
-  async function loadCatalog() {
-    catalog = await api('/api/catalog');
+  function readCatalogCache() {
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(CATALOG_CACHE_KEY) || 'null');
+      if (parsed?.data?.modules) return parsed;
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
+  function writeCatalogCache(data) {
+    try {
+      sessionStorage.setItem(
+        CATALOG_CACHE_KEY,
+        JSON.stringify({ rev: Number(data?.rev) || 0, data }),
+      );
+    } catch {
+      /* quota */
+    }
+  }
+
+  function clearCatalogCache() {
+    try {
+      sessionStorage.removeItem(CATALOG_CACHE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function mergeLessonBodies(target, source) {
+    const srcMap = new Map();
+    for (const mod of source?.modules || []) {
+      for (const ch of mod.chapters || []) {
+        for (const les of ch.lessons || []) {
+          srcMap.set(`${mod.slug}::${les.slug}`, les);
+        }
+      }
+    }
+    for (const mod of target?.modules || []) {
+      for (const ch of mod.chapters || []) {
+        for (const les of ch.lessons || []) {
+          const src = srcMap.get(`${mod.slug}::${les.slug}`);
+          if (!src) continue;
+          if (typeof les.text !== 'string') les.text = src.text || '';
+          if (!les.audioPath) les.audioPath = src.audioPath || '';
+          if (!les.videoPath) les.videoPath = src.videoPath || '';
+          if (!les.videoPathSd) les.videoPathSd = src.videoPathSd || '';
+        }
+      }
+    }
+  }
+
+  function applyLoadedCatalog(data) {
+    catalog = data;
     if (!catalog.modules) catalog.modules = [];
     if (!Array.isArray(catalog.references)) catalog.references = [];
     delete catalog.articleCollections;
     if (catalog.rev == null) catalog.rev = 0;
-    // 兼容：把仍挂在模块下的参考资料提到顶层（与接口 migrate 一致的前端兜底）
     catalog.modules.forEach((mod, i) => {
       if (mod.references?.length) {
         for (const r of mod.references) {
@@ -448,7 +519,6 @@
         }
         mod.references = [];
       }
-      // 缺省标识时自动补全（不覆盖已有 slug）
       if (!mod.slug || !/^[a-z][a-z0-9-]{0,47}$/.test(String(mod.slug))) {
         mod.slug = uniqueModSlug(normalizeModSlug(mod.id, `mod-${uid('m')}`), i);
         if (!mod.id) mod.id = mod.slug;
@@ -458,13 +528,92 @@
       if (!mod.shortTitle) mod.shortTitle = mod.title || '';
     });
     backfillModuleSections();
+  }
+
+  async function ensureLessonBody(mod, les) {
+    if (!mod || !les) return;
+    if (typeof les.text === 'string') return;
+    try {
+      const data = await api(
+        `/api/catalog?mod=${encodeURIComponent(mod.slug)}&id=${encodeURIComponent(les.slug)}`,
+        { cache: 'no-store' },
+      );
+      if (data?.lesson) {
+        les.text = data.lesson.text || '';
+        if (!les.audioPath) les.audioPath = data.lesson.audioPath || '';
+        if (!les.videoPath) les.videoPath = data.lesson.videoPath || '';
+        if (!les.videoPathSd) les.videoPathSd = data.lesson.videoPathSd || '';
+      } else {
+        les.text = '';
+      }
+    } catch {
+      les.text = les.text || '';
+    }
+  }
+
+  async function hydrateFullCatalog() {
+    const full = await api('/api/catalog', { cache: 'no-store' });
+    if (dirty) {
+      mergeLessonBodies(catalog, full);
+    } else {
+      const prevMode = sideMode;
+      const prevView = view;
+      const prevPath = editPath;
+      const prevIndex = moduleIndex;
+      applyLoadedCatalog(full);
+      sideMode = prevMode;
+      view = prevView;
+      editPath = prevPath;
+      if (catalog.modules[prevIndex]) moduleIndex = prevIndex;
+      renderModuleList();
+      renderEditor();
+    }
+    catalogFull = true;
+    writeCatalogCache(catalog);
+    if (saveMsg && /加载/.test(saveMsg.textContent || '')) {
+      showMsg(saveMsg, '课表已就绪。', true);
+    }
+  }
+
+  async function loadCatalog(opts = {}) {
+    const force = !!opts.force;
+    if (force) {
+      clearCatalogCache();
+      catalogFull = false;
+      catalogFullPromise = null;
+    }
+
+    const cached = force ? null : readCatalogCache();
+    if (cached?.data) {
+      catalogFull = true;
+      applyLoadedCatalog(cached.data);
+      view = 'structure';
+      editPath = null;
+      sideMode = 'module';
+      setDirty(false);
+      renderModuleList();
+      renderEditor();
+    }
+
+    const lite = await api('/api/catalog?lite=1', { cache: 'no-store' });
+    if (cached && Number(cached.rev) === Number(lite.rev) && catalogFull) {
+      return;
+    }
+
+    catalogFull = false;
+    applyLoadedCatalog(lite);
     view = 'structure';
     editPath = null;
     sideMode = 'module';
     setDirty(false);
     renderModuleList();
     renderEditor();
-    refreshPassagesStatus().catch(() => {});
+    showMsg(saveMsg, cached ? '课表有更新，正在加载课文…' : '列表已就绪，课文加载中…', true);
+
+    catalogFullPromise = hydrateFullCatalog().catch((e) => {
+      catalogFull = false;
+      showMsg(saveMsg, e.message || '课文加载失败', false);
+    });
   }
 
   async function refreshPassagesStatus() {
@@ -515,10 +664,12 @@
     const hasText = !!(les.text && String(les.text).trim());
     const hasAudio = !!(les.audioPath && String(les.audioPath).trim());
     const hasVideo = !!(les.videoPath && String(les.videoPath).trim());
+    const hasSd = !!(les.videoPathSd && String(les.videoPathSd).trim());
     const badges = [];
     if (hasText) badges.push('<span class="ops-badge" title="有文字">文</span>');
     if (hasAudio) badges.push('<span class="ops-badge ops-badge--audio" title="有音频">音</span>');
     if (hasVideo) badges.push('<span class="ops-badge ops-badge--video" title="有视频">视</span>');
+    if (hasSd) badges.push('<span class="ops-badge ops-badge--video" title="有标清">标</span>');
     if (!badges.length) badges.push('<span class="ops-badge ops-badge--empty">空</span>');
     return badges.join('');
   }
@@ -633,7 +784,14 @@
 
   function updateWorkspaceChrome() {
     const grid = $('ops-grid');
+    const passages = $('passages-panel');
+    const feedback = $('feedback-panel');
+    const isFeedback = sideMode === 'feedback';
+    appBox?.classList.toggle('is-feedback', isFeedback);
     grid?.classList.toggle('is-materials', sideMode === 'refs' || sideMode === 'articles');
+    if (grid) grid.hidden = isFeedback;
+    if (passages) passages.hidden = sideMode !== 'module';
+    if (feedback) feedback.hidden = !isFeedback;
     document.querySelectorAll('.ops-ws-tab').forEach((btn) => {
       btn.classList.toggle('is-active', btn.dataset.ws === sideMode);
     });
@@ -663,6 +821,11 @@
       }
       return;
     }
+    if (sideMode === 'feedback') {
+      label.textContent = '问题反馈';
+      title.textContent = $('feedback-summary')?.textContent || '学员提交';
+      return;
+    }
     label.textContent = '学修';
     const mod = currentModule();
     if (!mod) {
@@ -683,7 +846,7 @@
     if (sideMode === 'articles' && mode !== 'articles' && articlesDirty) {
       if (!confirm('公众号好文有未保存修改，切换将丢失。仍要切换？')) return;
     }
-    if (sideMode !== 'articles' && mode !== sideMode && dirty) {
+    if (sideMode !== 'articles' && sideMode !== 'feedback' && mode !== 'feedback' && mode !== sideMode && dirty) {
       if (!confirm('学修有未保存修改，切换分区将丢失这些修改（除非已保存）。仍要切换？')) return;
     }
     sideMode = mode;
@@ -695,6 +858,7 @@
     renderEditor();
     refreshDirtyBanner();
     updateWorkspaceChrome();
+    if (mode === 'feedback') window.dispatchEvent(new Event('ops-feedback-open'));
   }
 
   function selectModule(i) {
@@ -799,12 +963,17 @@
 
   function updateSaveButton() {
     const btn = $('btn-save');
-    if (!btn) return;
-    btn.textContent = sideMode === 'articles' ? '保存好文' : '保存到服务器';
+    const reload = $('btn-reload');
+    if (btn) {
+      btn.hidden = sideMode === 'feedback';
+      btn.textContent = sideMode === 'articles' ? '保存好文' : '保存到服务器';
+    }
+    if (reload) reload.hidden = sideMode === 'feedback';
   }
 
   function renderEditor() {
     updateWorkspaceChrome();
+    if (sideMode === 'feedback') return;
     if (sideMode === 'refs') {
       renderReferencesView();
       return;
@@ -1483,11 +1652,15 @@
           }
         }
         if (act === 'edit-lesson') {
-          editPath = {
-            ci,
-            li: Number(btn.dataset.li),
-          };
+          const li = Number(btn.dataset.li);
+          editPath = { ci, li };
           view = 'lesson';
+          const les = mod.chapters[ci]?.lessons?.[li];
+          if (les && typeof les.text !== 'string') {
+            renderEditor();
+            ensureLessonBody(mod, les).then(() => renderEditor());
+            return;
+          }
           renderEditor();
         }
         if (act === 'move-chapter') {
@@ -1726,24 +1899,26 @@
                 : `<p class="ops-empty ops-empty--sm">尚未上传视频。</p>`
           }
           <div class="ops-upload-panel">
-            <label class="ops-check">
-              <input type="checkbox" id="video-compress" />
-              <span>上传前转 AAC 音轨（浏览器处理，大文件仍可能较慢）</span>
-            </label>
-            <label class="ops-check">
-              <input type="checkbox" id="video-compress-deep" />
-              <span>同时压画面到 720p（很慢，200MB 可能要几十分钟）</span>
-            </label>
+            <div class="ops-row" style="margin:0.15rem 0 0.35rem;">
+              <a class="btn btn--solid ops-mini" style="color:#f4f7f5;" href="/api/download?path=media/jianxing-video-helper.zip">下载见行视频工作台</a>
+              <a class="btn ops-mini" style="color:inherit;border-color:var(--line);" href="/tools/使用说明.txt" target="_blank" rel="noopener">使用说明</a>
+            </div>
             <p class="ops-hint">
-              请先用电脑上的
-              <a href="/api/download?path=media/jianxing-video-helper.zip">见行视频助手</a>
-              检查并处理好再上传（<a href="/tools/使用说明.txt" target="_blank" rel="noopener">说明</a>）。
-              目标是开播快、苹果/微信能看有声；能不转码就不转码。下面两项是网页备用，默认不用勾。
+              请先用电脑上的工作台处理好再上传，网页不再转码。
+              已是 480p 的片子请传到「高清」口（只保留一档）；另有标清时再传到「标清」口。
+              替换高清会清空旧标清，避免学员默默播到旧片。
             </p>
+            <p class="ops-label" style="margin:0.4rem 0 0.2rem;">上传高清</p>
             <input type="file" accept="video/*,.mp4" id="upload-video" />
             <div class="ops-upload-status" id="video-upload-status" hidden></div>
             <div class="ops-progress" id="video-progress" hidden>
               <div class="ops-progress-bar" id="video-progress-bar"></div>
+            </div>
+            <p class="ops-label" style="margin:0.8rem 0 0.2rem;">上传标清（可选）</p>
+            <input type="file" accept="video/*,.mp4" id="upload-video-sd" />
+            <div class="ops-upload-status" id="video-sd-upload-status" hidden></div>
+            <div class="ops-progress" id="video-sd-progress" hidden>
+              <div class="ops-progress-bar" id="video-sd-progress-bar"></div>
             </div>
           </div>
         </div>
@@ -1775,6 +1950,7 @@
 
     bindUpload('audio', mod, les);
     bindUpload('video', mod, les);
+    bindUpload('video-sd', mod, les);
   }
 
   function setUploadUi(kind, { pct, text, ok, error }) {
@@ -1860,11 +2036,11 @@
       box.className = 'ops-modal';
       box.innerHTML = `
         <div class="ops-modal__card" role="dialog" aria-labelledby="ops-video-advice-title">
-          <h3 id="ops-video-advice-title">建议先用见行视频助手处理</h3>
+          <h3 id="ops-video-advice-title">建议先用见行视频工作台处理</h3>
           <p>检查结果：建议<strong>${escapeHtml(report.title)}</strong>后再上传，以免${escapeHtml(report.risk)}。</p>
-          <p>请先下载 Windows 工具，在电脑上转好，再上传生成的「原名-见行上传.mp4」。若执意上传原文件，仍可以继续。</p>
+          <p>请先下载 Windows 工具，在电脑上转好，再上传处理好的文件。若执意上传原文件，仍可以继续。</p>
           <div class="ops-modal__actions">
-            <a class="btn btn--solid" style="color:#f4f7f5;" href="/api/download?path=media/jianxing-video-helper.zip">下载见行视频助手</a>
+            <a class="btn btn--solid" style="color:#f4f7f5;" href="/api/download?path=media/jianxing-video-helper.zip">下载见行视频工作台</a>
             <button type="button" class="btn" data-act="upload" style="color:inherit;border-color:var(--line);">仍要上传</button>
             <button type="button" class="btn" data-act="cancel" style="color:inherit;border-color:var(--line);">取消</button>
           </div>
@@ -1882,13 +2058,30 @@
     });
   }
 
+  function probeVideoHeight(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      const done = (h) => {
+        URL.revokeObjectURL(url);
+        resolve(h || 0);
+      };
+      v.onloadedmetadata = () => done(v.videoHeight);
+      v.onerror = () => done(0);
+      setTimeout(() => done(0), 8000);
+      v.src = url;
+    });
+  }
+
   function bindUpload(kind, mod, les) {
     const input = $(`upload-${kind}`);
     if (!input) return;
     input.addEventListener('change', async () => {
-      let file = input.files?.[0];
+      const file = input.files?.[0];
       if (!file) return;
-      if (kind === 'video') {
+      const isVideo = kind === 'video' || kind === 'video-sd';
+      if (isVideo) {
         try {
           const report = await inspectVideoFile(file);
           if (report.action !== 'ready') {
@@ -1900,7 +2093,7 @@
           }
         } catch (e) {
           const ok = confirm(
-            `无法自动检查该视频（${e.message || e}）。\n建议先下载「见行视频助手」处理后再传。\n仍要直接上传吗？`,
+            `无法自动检查该视频（${e.message || e}）。\n建议先用「见行视频工作台」处理后再传。\n仍要直接上传吗？`,
           );
           if (!ok) {
             input.value = '';
@@ -1908,45 +2101,56 @@
           }
         }
       }
-      const field = kind === 'audio' ? 'audioPath' : 'videoPath';
-      const wantCompress = kind === 'video' && $('video-compress')?.checked;
-      const ext = kind === 'video' ? 'mp4' : mediaExt(file, 'mp3');
-      const key = versionedKey(`${mod.slug}/${les.slug}`, ext);
+
+      if (kind === 'video-sd' && !(les.videoPath && String(les.videoPath).trim())) {
+        alert('请先上传高清（若片子已经是 480p，请传到「高清」口，只保留一档）。');
+        input.value = '';
+        return;
+      }
+
+      let field = 'audioPath';
+      let keyStem = `${mod.slug}/${les.slug}`;
+      let label = '音频';
+      let clearSd = false;
+      if (kind === 'video') {
+        field = 'videoPath';
+        label = '高清视频';
+        const height = await probeVideoHeight(file);
+        const alreadySd = height > 0 && height <= 480;
+        const hadSd = !!(les.videoPathSd && String(les.videoPathSd).trim());
+        const replacing = !!(les.videoPath && String(les.videoPath).trim());
+        if (replacing && hadSd) {
+          const ok = confirm(
+            alreadySd
+              ? '将替换高清路径，并清空旧标清（新片已是 480p，只保留一档）。是否继续？'
+              : '将替换高清路径，并清空旧标清，避免学员默认仍播旧标清。是否继续？',
+          );
+          if (!ok) {
+            input.value = '';
+            return;
+          }
+        }
+        if (alreadySd || replacing) clearSd = true;
+        if (alreadySd) {
+          showMsg(saveMsg, `检测到约 ${height}p，将只保留一档（写入高清路径，不另建标清）。`, true);
+        }
+      } else if (kind === 'video-sd') {
+        field = 'videoPathSd';
+        keyStem = `${mod.slug}/${les.slug}-sd`;
+        label = '标清视频';
+      }
+
+      const ext = isVideo ? 'mp4' : mediaExt(file, 'mp3');
+      const key = versionedKey(keyStem, ext);
       les[field] = key;
+      if (clearSd) les.videoPathSd = '';
 
       try {
-        if (wantCompress) {
-          if (typeof window.JXCompressVideo !== 'function') {
-            throw new Error('压缩组件尚未加载完成，请稍候再试，或取消勾选后直接上传。');
-          }
-          setUploadUi(kind, { pct: 0, text: '准备压缩…' });
-          showMsg(saveMsg, '正在压缩视频（方便手机观看）…', true);
-          const deep = !!$('video-compress-deep')?.checked;
-          if (deep && file.size > 80 * 1024 * 1024) {
-            const ok = confirm(
-              `该视频约 ${(file.size / 1024 / 1024).toFixed(0)}MB。浏览器深度压缩会非常慢（可能几十分钟）。\n\n确定继续？\n选“取消”将改为只转 AAC 音轨（快很多）。`,
-            );
-            if (!ok) {
-              const deepBox = $('video-compress-deep');
-              if (deepBox) deepBox.checked = false;
-            }
-          }
-          file = await window.JXCompressVideo(file, {
-            deep: !!$('video-compress-deep')?.checked,
-            onStatus: (text) => setUploadUi(kind, { pct: null, text }),
-            onProgress: (pct) =>
-              setUploadUi(kind, {
-                pct,
-                text: `处理中… ${pct}%（请勿关闭页面）`,
-              }),
-          });
-        }
-
         setUploadUi(kind, {
           pct: 0,
           text: `准备上传：${file.name}（${(file.size / 1024 / 1024).toFixed(1)} MB）`,
         });
-        showMsg(saveMsg, `正在上传${kind === 'audio' ? '音频' : '视频'}…`, true);
+        showMsg(saveMsg, `正在上传${label}…`, true);
         await uploadFile(key, file, (done, total) => {
           const pct = Math.min(100, Math.round((done / total) * 100));
           setUploadUi(kind, {
@@ -1969,13 +2173,7 @@
         });
       } catch (e) {
         const msg = String(e.message || e);
-        setUploadUi(kind, {
-          pct: null,
-          text: wantCompress
-            ? `压缩失败：${msg}。可取消勾选「自动压缩」后直接上传原文件。`
-            : msg,
-          error: true,
-        });
+        setUploadUi(kind, { pct: null, text: msg, error: true });
         showMsg(saveMsg, msg, false);
       } finally {
         input.value = '';
@@ -2011,7 +2209,7 @@
       return;
     }
     if (dirty && !confirm('有未保存修改，重新加载将丢失。继续？')) return;
-    loadCatalog().catch((e) => showMsg(saveMsg, e.message, false));
+    loadCatalog({ force: true }).catch((e) => showMsg(saveMsg, e.message, false));
   });
 
   $('btn-save')?.addEventListener('click', () => {
@@ -2037,6 +2235,7 @@
     body.hidden = !open;
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (hint) hint.textContent = open ? '收起' : '展开';
+    if (open) refreshPassagesStatus().catch(() => {});
   });
 
   document.querySelectorAll('.ops-ws-tab').forEach((btn) => {

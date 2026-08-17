@@ -29,10 +29,12 @@ Thumbs.db
 .wrangler/
 .dev.vars
 
-# 见行视频助手：构建产物与捆绑的 ffmpeg（体积大，勿提交）
+# 见行视频助手：构建产物、本地配置与捆绑的 ffmpeg（体积大 / 含密码，勿提交）
 tools/jx-video-helper/ffmpeg/
 tools/jx-video-helper/dist/
 tools/jx-video-helper/build/
+tools/jx-video-helper/backup/
+tools/jx-video-helper/config.json
 tools/jx-video-helper/*.spec
 tools/jx-video-helper/__pycache__/
 tools/jx-video-helper/*.zip

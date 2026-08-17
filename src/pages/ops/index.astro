@@ -3,27 +3,31 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="运营后台" description="见行修学内容架构与上传">
-  <div class="page-hero">
-    <div class="wrap">
-      <p class="group-label" style="margin-top: 0;">内部工具</p>
-      <h1>运营后台</h1>
-      <p>
-        学修为主要内容：左侧选模块，模块内为章节 → 课；进入课后再编辑文字、上传音视频。
-        参考书籍与公众号好文在上方分区进入，属于材料区，不计入学修课表。
-        视频请先用
-        <a href="/api/download?path=media/jianxing-video-helper.zip">见行视频助手</a>
-        （Windows，解压整个文件夹）在电脑上检查处理后再上传，以免开播慢或苹果/微信播不了。
-      </p>
+  <div class="page-hero page-hero--ops">
+    <div class="wrap ops-top">
+      <div class="ops-top__intro">
+        <p class="group-label" style="margin:0;">内部工具</p>
+        <h1>运营后台</h1>
+        <p>学修为主：模块 → 章节 → 课。书籍与好文在上方分区，不计入学修课表。网页只负责上传，不再转码。</p>
+      </div>
+      <div class="ops-top__tool" id="ops-helper-dl">
+        <p class="ops-label">见行视频工作台</p>
+        <p class="ops-hint">Windows 解压整个文件夹后打开 exe，不要只拷一个文件。</p>
+        <div class="ops-row" style="margin:0.35rem 0 0;">
+          <a class="btn btn--solid ops-mini" style="color:#f4f7f5;" href="/api/download?path=media/jianxing-video-helper.zip">下载见行视频工作台</a>
+          <a class="btn ops-mini" style="color:inherit;border-color:var(--line);" href="/tools/使用说明.txt" target="_blank" rel="noopener">使用说明</a>
+        </div>
+      </div>
     </div>
   </div>
 
-  <section class="section" style="padding-top: 0;">
+  <section class="section ops-section">
     <div class="wrap">
-      <div id="ops-login" class="ops-panel">
+      <div id="ops-login" class="ops-login-bar">
         <p class="ops-label">登录</p>
         <form id="login-form" class="ops-form-simple">
           <input type="password" name="password" placeholder="运营密码" autocomplete="current-password" required />
-          <button type="submit" class="btn btn--solid" style="color:#f4f7f5;">登录</button>
+          <button type="submit" class="btn btn--solid ops-mini" style="color:#f4f7f5;">登录</button>
         </form>
         <p id="login-msg" class="ops-msg" hidden></p>
       </div>
@@ -33,6 +37,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <button type="button" class="ops-ws-tab is-active" data-ws="module">学修</button>
           <button type="button" class="ops-ws-tab" data-ws="refs">参考书籍</button>
           <button type="button" class="ops-ws-tab" data-ws="articles">公众号好文</button>
+          <button type="button" class="ops-ws-tab" data-ws="feedback">
+            问题反馈
+            <span id="fb-tab-badge" class="ops-ws-tab__badge" hidden></span>
+          </button>
         </div>
 
         <div class="ops-sticky-bar">
@@ -50,24 +58,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               <button type="button" id="logout-btn" class="btn" style="color:inherit;border-color:var(--line);">退出</button>
             </div>
             <span id="save-msg" class="ops-msg" style="margin:0;"></span>
-          </div>
-        </div>
-
-        <div id="passages-panel" class="ops-cards-panel ops-cards-panel--collapsible">
-          <button type="button" class="ops-cards-toggle" id="btn-passages-toggle" aria-expanded="false">
-            <strong>问答索引（向量）</strong>
-            <span id="passages-summary" class="ops-cards-summary">加载中…</span>
-            <span class="ops-cards-toggle__hint">展开</span>
-          </button>
-          <div class="ops-cards-body" id="passages-body" hidden>
-            <p class="ops-cards-hint">
-              见行解惑已改用段落向量混合检索。保存课文后会自动增量重建；也可点下方按钮手动预热。
-            </p>
-            <div class="ops-cards-actions">
-              <button type="button" id="btn-passages-warm" class="btn ops-mini" style="color:inherit;border-color:var(--line);">重建/预热一批</button>
-              <button type="button" id="btn-passages-refresh" class="btn ops-mini" style="color:inherit;border-color:var(--line);">刷新状态</button>
-            </div>
-            <p id="passages-msg" class="ops-msg" hidden style="margin:0.5rem 0 0;"></p>
           </div>
         </div>
 
@@ -93,56 +83,79 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           </div>
         </div>
 
-        <div id="feedback-panel" class="ops-cards-panel ops-cards-panel--collapsible">
-          <button type="button" class="ops-cards-toggle" id="btn-feedback-toggle" aria-expanded="false">
-            <strong>问题反馈</strong>
-            <span id="feedback-summary" class="ops-cards-summary">登录后加载…</span>
+        <div id="passages-panel" class="ops-cards-panel ops-cards-panel--collapsible">
+          <button type="button" class="ops-cards-toggle" id="btn-passages-toggle" aria-expanded="false">
+            <strong>问答索引（向量）</strong>
+            <span id="passages-summary" class="ops-cards-summary">展开后查看</span>
             <span class="ops-cards-toggle__hint">展开</span>
           </button>
-          <div class="ops-cards-body" id="feedback-body" hidden>
-            <div class="ops-cards-actions" style="flex-wrap:wrap;gap:0.5rem;">
-              <select id="fb-filter-type" class="ops-side-select" aria-label="按类型筛选">
-                <option value="">全部类型</option>
-                <option value="practice">修行问题</option>
-                <option value="system">系统问题</option>
-              </select>
-              <select id="fb-filter-status" class="ops-side-select" aria-label="按状态筛选">
-                <option value="">全部状态</option>
-                <option value="new">新</option>
-                <option value="read">已读</option>
-                <option value="archived">已归档</option>
-              </select>
-              <button type="button" id="btn-feedback-refresh" class="btn ops-mini" style="color:inherit;border-color:var(--line);">刷新</button>
+          <div class="ops-cards-body" id="passages-body" hidden>
+            <p class="ops-cards-hint">
+              见行解惑已改用段落向量混合检索。保存课文后会自动增量重建；也可点下方按钮手动预热。
+            </p>
+            <div class="ops-cards-actions">
+              <button type="button" id="btn-passages-warm" class="btn ops-mini" style="color:inherit;border-color:var(--line);">重建/预热一批</button>
+              <button type="button" id="btn-passages-refresh" class="btn ops-mini" style="color:inherit;border-color:var(--line);">刷新状态</button>
             </div>
-            <div id="feedback-list" class="fb-ops-list" style="margin-top:0.75rem;"></div>
-            <p id="feedback-msg" class="ops-msg" hidden style="margin:0.5rem 0 0;"></p>
+            <p id="passages-msg" class="ops-msg" hidden style="margin:0.5rem 0 0;"></p>
           </div>
+        </div>
+
+        <div id="feedback-panel" class="fb-ops" hidden>
+          <div class="fb-ops__toolbar">
+            <div class="fb-ops__filters">
+              <label class="fb-ops__field">
+                <span>类型</span>
+                <select id="fb-filter-type" class="ops-side-select" aria-label="按类型筛选">
+                  <option value="">全部</option>
+                  <option value="practice">修行问题</option>
+                  <option value="system">系统问题</option>
+                </select>
+              </label>
+              <div class="fb-ops__chips" role="group" aria-label="按状态筛选">
+                <button type="button" class="fb-chip is-active" data-status="">全部 <span id="fb-count-all">0</span></button>
+                <button type="button" class="fb-chip" data-status="new">新 <span id="fb-count-new">0</span></button>
+                <button type="button" class="fb-chip" data-status="read">已读 <span id="fb-count-read">0</span></button>
+                <button type="button" class="fb-chip" data-status="archived">已归档 <span id="fb-count-archived">0</span></button>
+              </div>
+            </div>
+            <button type="button" id="btn-feedback-refresh" class="btn ops-mini" style="color:inherit;border-color:var(--line);">刷新</button>
+          </div>
+          <p id="feedback-summary" class="fb-ops__summary">登录后加载…</p>
+          <div class="fb-ops__board">
+            <div id="feedback-list" class="fb-ops__list" role="listbox" aria-label="反馈列表"></div>
+            <div id="feedback-detail" class="fb-ops__detail">
+              <p class="ops-empty" style="margin:0;">点左侧一条查看全文</p>
+            </div>
+          </div>
+          <p id="feedback-msg" class="ops-msg" hidden></p>
         </div>
       </div>
     </div>
   </section>
 </BaseLayout>
 
-<link rel="stylesheet" href="/ops-app.css?v=20260816b" />
-<script type="module" src="/ops-video-compress.js?v=20260725i"></script>
-<script src="/ops-app.js?v=20260816d" defer></script>
+<link rel="stylesheet" href="/ops-app.css?v=20260817g" />
+<script src="/ops-app.js?v=20260817h" defer></script>
 <script is:inline>
-  // 问题反馈面板（独立于 ops-app.js，仅依赖登录 cookie）
+  // 问题反馈：与学修/书籍/好文同一排 tab，点开后先列表再看全文
   (() => {
     const TYPE_LABEL = { practice: '修行问题', system: '系统问题' };
     const STATUS_LABEL = { new: '新', read: '已读', archived: '已归档' };
 
-    const panel = document.getElementById('feedback-panel');
-    const toggle = document.getElementById('btn-feedback-toggle');
-    const body = document.getElementById('feedback-body');
-    const hint = toggle.querySelector('.ops-cards-toggle__hint');
     const summary = document.getElementById('feedback-summary');
     const listEl = document.getElementById('feedback-list');
+    const detailEl = document.getElementById('feedback-detail');
     const msgEl = document.getElementById('feedback-msg');
     const typeSel = document.getElementById('fb-filter-type');
-    const statusSel = document.getElementById('fb-filter-status');
     const refreshBtn = document.getElementById('btn-feedback-refresh');
+    const badge = document.getElementById('fb-tab-badge');
+    const appBox = document.getElementById('ops-app');
+    const chips = Array.from(document.querySelectorAll('.fb-chip[data-status]'));
 
+    let allItems = [];
+    let statusFilter = '';
+    let selectedId = null;
     let loaded = false;
     let loading = false;
 
@@ -158,167 +171,220 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     function formatTime(iso) {
       try {
         const d = new Date(iso);
-        if (isNaN(d.getTime())) return iso;
+        if (isNaN(d.getTime())) return iso || '';
         const pad = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       } catch {
-        return iso;
+        return iso || '';
       }
+    }
+
+    function excerpt(text) {
+      const t = String(text || '').replace(/\s+/g, ' ').trim();
+      return t.length > 42 ? `${t.slice(0, 42)}…` : t;
     }
 
     function setMsg(text, isErr) {
       msgEl.textContent = text || '';
-      msgEl.className = 'ops-msg' + (isErr ? ' ops-msg--error' : '');
       msgEl.hidden = !text;
+      msgEl.classList.toggle('is-error', !!isErr);
+      msgEl.classList.toggle('is-ok', !!text && !isErr);
+    }
+
+    function counts() {
+      return {
+        all: allItems.length,
+        new: allItems.filter((it) => it.status === 'new').length,
+        read: allItems.filter((it) => it.status === 'read').length,
+        archived: allItems.filter((it) => it.status === 'archived').length,
+      };
+    }
+
+    function filtered() {
+      return allItems.filter((it) => {
+        if (typeSel.value && it.type !== typeSel.value) return false;
+        if (statusFilter && it.status !== statusFilter) return false;
+        return true;
+      });
+    }
+
+    function updateStats() {
+      const c = counts();
+      const set = (id, n) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(n);
+      };
+      set('fb-count-all', c.all);
+      set('fb-count-new', c.new);
+      set('fb-count-read', c.read);
+      set('fb-count-archived', c.archived);
+      chips.forEach((btn) => {
+        btn.classList.toggle('is-active', (btn.dataset.status || '') === statusFilter);
+      });
+      if (badge) {
+        badge.hidden = c.new === 0;
+        badge.textContent = c.new ? String(c.new) : '';
+      }
+      const shown = filtered().length;
+      if (!loaded) {
+        summary.textContent = '登录后加载…';
+        return;
+      }
+      const bits = [`共 ${c.all} 条`];
+      if (c.new) bits.push(`新 ${c.new}`);
+      if (typeSel.value || statusFilter) bits.push(`当前列出 ${shown} 条`);
+      summary.textContent = bits.join(' · ');
+      const title = document.getElementById('ops-ctx-title');
+      const tab = document.querySelector('.ops-ws-tab.is-active');
+      if (title && tab?.dataset.ws === 'feedback') {
+        title.textContent = c.new ? `${c.all} 条，其中 ${c.new} 条未读` : `${c.all} 条`;
+      }
+    }
+
+    function statusButtons(it) {
+      const targets = [];
+      if (it.status !== 'new') targets.push(['new', '标为新']);
+      if (it.status !== 'read') targets.push(['read', '标为已读']);
+      if (it.status !== 'archived') targets.push(['archived', '归档']);
+      return targets
+        .map(
+          ([s, label]) =>
+            `<button type="button" class="btn ops-mini fb-status-btn" data-id="${escapeHtml(it.id)}" data-status="${s}" style="color:inherit;border-color:var(--line);">${label}</button>`,
+        )
+        .join('');
+    }
+
+    function renderDetail(it) {
+      if (!it) {
+        detailEl.innerHTML = '<p class="ops-empty" style="margin:0;">点左侧一条查看全文</p>';
+        return;
+      }
+      detailEl.innerHTML = `
+        <article class="fb-detail">
+          <dl class="fb-detail__meta">
+            <div><dt>状态</dt><dd><span class="fb-tag fb-tag--${escapeHtml(it.status)}">${escapeHtml(STATUS_LABEL[it.status] || it.status)}</span></dd></div>
+            <div><dt>类型</dt><dd><span class="fb-tag fb-tag-type--${escapeHtml(it.type)}">${escapeHtml(TYPE_LABEL[it.type] || it.type)}</span></dd></div>
+            <div><dt>提交时间</dt><dd>${escapeHtml(formatTime(it.created_at))}</dd></div>
+            <div><dt>提报人邮箱</dt><dd><a href="mailto:${escapeHtml(it.email)}">${escapeHtml(it.email)}</a></dd></div>
+          </dl>
+          <div class="fb-detail__body">
+            <p class="ops-label" style="margin:0 0 0.35rem;">内容</p>
+            <div class="fb-detail__content">${escapeHtml(it.content).replace(/\n/g, '<br>')}</div>
+          </div>
+          <div class="fb-detail__actions">${statusButtons(it)}</div>
+        </article>`;
+    }
+
+    function renderList() {
+      updateStats();
+      const items = filtered();
+      if (!items.length) {
+        listEl.innerHTML = `<p class="ops-empty" style="margin:0;">${loaded ? '暂无符合筛选的反馈' : '加载中…'}</p>`;
+        renderDetail(null);
+        return;
+      }
+      if (!items.some((it) => it.id === selectedId)) selectedId = items[0].id;
+      listEl.innerHTML = items
+        .map((it) => {
+          const active = it.id === selectedId ? ' is-active' : '';
+          return `<button type="button" class="fb-row fb-row--${escapeHtml(it.status)}${active}" data-id="${escapeHtml(it.id)}" role="option" aria-selected="${it.id === selectedId}">
+            <span class="fb-row__top">
+              <span class="fb-tag fb-tag--${escapeHtml(it.status)}">${escapeHtml(STATUS_LABEL[it.status] || it.status)}</span>
+              <span class="fb-tag fb-tag-type--${escapeHtml(it.type)}">${escapeHtml(TYPE_LABEL[it.type] || it.type)}</span>
+              <span class="fb-row__time">${escapeHtml(formatTime(it.created_at))}</span>
+            </span>
+            <span class="fb-row__email">${escapeHtml(it.email)}</span>
+            <span class="fb-row__excerpt">${escapeHtml(excerpt(it.content))}</span>
+          </button>`;
+        })
+        .join('');
+      renderDetail(items.find((it) => it.id === selectedId) || null);
     }
 
     async function load() {
       if (loading) return;
       loading = true;
-      listEl.innerHTML = '<p class="ops-empty" style="margin:0;">加载中…</p>';
       setMsg('');
+      listEl.innerHTML = '<p class="ops-empty" style="margin:0;">加载中…</p>';
       try {
-        const params = new URLSearchParams();
-        if (typeSel.value) params.set('type', typeSel.value);
-        if (statusSel.value) params.set('status', statusSel.value);
-        const qs = params.toString();
-        const res = await fetch('/api/feedback' + (qs ? `?${qs}` : ''), { cache: 'no-store' });
+        const res = await fetch('/api/feedback', { cache: 'no-store', credentials: 'same-origin' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `加载失败（${res.status}）`);
-        const items = data.items || [];
-        summary.textContent = `共 ${items.length} 条`;
-        if (!items.length) {
-          listEl.innerHTML = '<p class="ops-empty" style="margin:0;">暂无反馈</p>';
-        } else {
-          listEl.innerHTML = items.map((it) => {
-            const statusOps = ['read', 'archived']
-              .filter((s) => s !== it.status)
-              .map((s) => `<button type="button" class="btn ops-mini fb-status-btn" data-id="${escapeHtml(it.id)}" data-status="${s}" style="color:inherit;border-color:var(--line);margin-left:0.4rem;">标为${STATUS_LABEL[s]}</button>`)
-              .join('');
-            return `<article class="fb-item fb-item--${escapeHtml(it.status)}">
-              <header class="fb-item__head">
-                <span class="fb-item__type fb-item__type--${escapeHtml(it.type)}">${escapeHtml(TYPE_LABEL[it.type] || it.type)}</span>
-                <span class="fb-item__status fb-item__status--${escapeHtml(it.status)}">${STATUS_LABEL[it.status] || it.status}</span>
-                <span class="fb-item__time">${escapeHtml(formatTime(it.created_at))}</span>
-              </header>
-              <p class="fb-item__content">${escapeHtml(it.content).replace(/\n/g, '<br>')}</p>
-              <footer class="fb-item__foot">
-                <span class="fb-item__email">邮箱：<a href="mailto:${escapeHtml(it.email)}">${escapeHtml(it.email)}</a></span>
-                <span class="fb-item__ops">
-                  ${it.status !== 'new' ? `<button type="button" class="btn ops-mini fb-status-btn" data-id="${escapeHtml(it.id)}" data-status="new" style="color:inherit;border-color:var(--line);margin-left:0.4rem;">标为新</button>` : ''}
-                  ${statusOps}
-                </span>
-              </footer>
-            </article>`;
-          }).join('');
-        }
+        allItems = data.items || [];
         loaded = true;
+        renderList();
       } catch (err) {
+        allItems = [];
+        loaded = false;
         listEl.innerHTML = '';
+        renderDetail(null);
         summary.textContent = '加载失败';
         setMsg(err.message || String(err), true);
+        if (badge) badge.hidden = true;
       } finally {
         loading = false;
       }
     }
 
-    toggle.addEventListener('click', () => {
-      const open = body.hasAttribute('hidden');
-      if (open) {
-        body.hidden = false;
-        toggle.setAttribute('aria-expanded', 'true');
-        hint.textContent = '收起';
-        if (!loaded) load();
-      } else {
-        body.hidden = true;
-        toggle.setAttribute('aria-expanded', 'false');
-        hint.textContent = '展开';
-      }
+    async function setStatus(id, status) {
+      const res = await fetch('/api/feedback', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `更新失败（${res.status}）`);
+      const row = allItems.find((it) => it.id === id);
+      if (row) row.status = status;
+      selectedId = id;
+      renderList();
+    }
+
+    listEl.addEventListener('click', (e) => {
+      const row = e.target.closest('.fb-row');
+      if (!row) return;
+      selectedId = row.dataset.id;
+      renderList();
     });
 
-    refreshBtn.addEventListener('click', load);
-    typeSel.addEventListener('change', () => { loaded = false; load(); });
-    statusSel.addEventListener('change', () => { loaded = false; load(); });
-
-    listEl.addEventListener('click', async (e) => {
+    detailEl.addEventListener('click', async (e) => {
       const btn = e.target.closest('.fb-status-btn');
       if (!btn) return;
-      const id = btn.dataset.id;
-      const status = btn.dataset.status;
       btn.disabled = true;
       try {
-        const res = await fetch('/api/feedback', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, status }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || `更新失败（${res.status}）`);
-        await load();
+        await setStatus(btn.dataset.id, btn.dataset.status);
+        setMsg('已更新状态', false);
       } catch (err) {
         setMsg(err.message || String(err), true);
       } finally {
         btn.disabled = false;
       }
     });
+
+    chips.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        statusFilter = btn.dataset.status || '';
+        renderList();
+      });
+    });
+    typeSel.addEventListener('change', renderList);
+    refreshBtn.addEventListener('click', () => {
+      loaded = false;
+      load();
+    });
+
+    window.addEventListener('ops-feedback-open', () => {
+      if (!loaded) load();
+      else renderList();
+    });
+
+    if (appBox) {
+      const mo = new MutationObserver(() => {
+        if (!appBox.hidden && !loaded) load();
+      });
+      mo.observe(appBox, { attributes: true, attributeFilter: ['hidden'] });
+      if (!appBox.hidden) load();
+    }
   })();
 </script>
-<style>
-  .fb-ops-list { display: flex; flex-direction: column; gap: 0.6rem; }
-  .fb-item {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 0.7rem 0.85rem;
-    background: rgba(255, 255, 255, 0.7);
-  }
-  .fb-item--new { border-left: 3px solid var(--jade); }
-  .fb-item--archived { opacity: 0.65; }
-  .fb-item__head {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.4rem;
-    font-family: var(--font-sans);
-    font-size: 0.82rem;
-  }
-  .fb-item__type {
-    display: inline-block;
-    padding: 0.1rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 500;
-  }
-  .fb-item__type--practice { background: rgba(47, 93, 78, 0.14); color: var(--jade-deep); }
-  .fb-item__type--system { background: rgba(31, 99, 145, 0.14); color: #1f6391; }
-  .fb-item__status {
-    font-size: 0.76rem;
-    padding: 0.05rem 0.45rem;
-    border-radius: 6px;
-    background: rgba(26, 33, 30, 0.08);
-    color: var(--ink-soft);
-  }
-  .fb-item__status--new { background: rgba(180, 35, 24, 0.12); color: #b42318; }
-  .fb-item__status--read { background: rgba(47, 93, 78, 0.12); color: var(--jade-deep); }
-  .fb-item__time { color: var(--ink-soft); margin-left: auto; }
-  .fb-item__content {
-    margin: 0.2rem 0 0.5rem;
-    font-family: var(--font-serif);
-    font-size: 0.98rem;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .fb-item__foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    font-family: var(--font-sans);
-    font-size: 0.82rem;
-    color: var(--ink-soft);
-  }
-  .fb-item__ops { display: inline-flex; align-items: center; }
-  .ops-msg--error { color: #b42318; }
-</style>

@@ -54,6 +54,17 @@ huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，P
 
 ## 版本
 
+**v1.3.6**（2026-08-17）
+
+相对 v1.3.5 的主要变化（运营后台与本地视频工作台）：
+
+- 运营后台网页不再做 AAC/720p 转码；改为下载「见行视频工作台」，高清/标清分开上传，替换高清会清空旧标清
+- 问题反馈改为与学修/书籍/好文并列的 tab；列表与正文分栏；问答索引只出现在学修页底部
+- 运营页顶部说明收成左右栏；登录条登录后会收起
+- 运营进后台先拉 lite 课表出列表，课文后台加载，并在本机会话缓存，避免每次卡几秒
+- Windows 见行视频工作台：课表检查、备份、出标清、单文件处理、切割；打包脚本 `build.py`；安装包仍在 R2 `media/jianxing-video-helper.zip`
+- `package.json` 版本 **1.3.6**
+
 **v1.3.5**（2026-08-17）
 
 相对 v1.3.4 的主要变化（国内打开变慢、视频首播、标清档）：
@@ -227,8 +238,8 @@ huidengjingtu.win       ← 产品线 2：慧灯净土（目录 净土网站，P
 | 标清字段 | `lessons[].videoPathSd`，lite 目录会带上；`flattenLesson` 会保留 |
 | 学习页 | 有标清则默认标清，工具条「标清 / 高清」；无标清仍播高清 |
 | 下载页 | 高清、标清分列 |
-| 运营 | 课编辑显示高清路径 + 标清路径 |
-| 见行视频助手 | `tools/jx-video-helper/jx_video_helper.py`（Python 3.6 可跑）；打包脚本 `build.ps1`；说明见 `tools/jx-video-helper/使用说明.txt`。exe 不入库，运营从 `/api/download?path=media/jianxing-video-helper.zip` 下。SmartScreen 提示消不掉，除非购买代码签名证书 |
+| 运营 | 课编辑显示高清路径 + 标清路径；网页只上传，转码走见行视频工作台 |
+| 见行视频工作台 | `tools/jx-video-helper/`（`jx_video_helper.py` + `jx_lib.py`）；打包 `build.py`；说明见 `使用说明.txt`。exe / ffmpeg 不入库，运营从 `/api/download?path=media/jianxing-video-helper.zip` 下。SmartScreen 提示消不掉，除非购买代码签名证书 |
 | 旧课标清 | 本机脚本 `tools/jx-video-sd/run.ps1`：curl 下高清 → ffmpeg 480p → 上传 `*-sd.mp4` → 改 `config/catalog.json` 的 `videoPathSd` 并 `rev+1` |
 
 标清转码参数：`scale=-2:480`、`libx264` veryfast CRF 26、AAC 128k、`+faststart`。
@@ -264,7 +275,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "tools\jx-video-sd\run.ps1"
 ### 后续计划
 
 1. **先做完这 23 课标清**（续跑 `run.ps1`）。全部完成后抽一课《信心之音》看标清/高清和起播。
-2. **新课**：师兄用见行视频助手在本机处理好再上传；有标清就填 `videoPathSd`，学员默认标清。
+2. **新课**：师兄用见行视频工作台在本机处理好再上传；有标清就填 `videoPathSd`，学员默认标清。
 3. **海外转码机（未做，需要时再上）**：R2 附近 VPS，上传高清后自动出 480p 并写目录。片不进大陆盘。现有阿里云机继续只做 `.xin` 反代。
 4. **HLS / Stream**：标清默认仍不够再评估；不是当前第一步。
 5. **视频助手 SmartScreen**：不买证书就无法从根上去掉「已保护你的电脑」，继续让师兄点「仍要运行」。
@@ -291,7 +302,7 @@ public/ops-app.js       运营后台逻辑
 public/jx-catalog.js    前台目录与学修分区（列表走 lite）
 public/jx-ask.js        见行解惑
 public/yantao-*.js      研讨前台
-tools/jx-video-helper/  见行视频助手源码（exe / ffmpeg 不入库）
+tools/jx-video-helper/  见行视频工作台源码（exe / ffmpeg 不入库）
 tools/jx-video-sd/      旧课转标清脚本（片源不入库）
 android/                Capacitor 安卓工程
 functions/api/          auth / progress / ask / cards / catalog / articles / passages / yantao / upload*
@@ -365,5 +376,5 @@ npm install
 cp .env.example .env   # 自行填入 PUBLIC_R2_BASE
 ```
 
-读完本 README「版本 → v1.3.5」、下文「视频播放、标清与国内访问」，以及 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
+读完本 README「版本 → v1.3.6」、下文「视频播放、标清与国内访问」，以及 `运营说明.md`、`安卓App说明.md` 即可了解当前状态。  
 线上目录与媒体在 R2，不在本仓库二进制里。部署到 Cloudflare 需已登录 Wrangler，并具备 Pages / R2 / D1 / AI / Vectorize 权限。

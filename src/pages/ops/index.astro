@@ -65,7 +65,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <aside class="ops-side" id="ops-side">
             <div class="ops-side-head">
               <p class="ops-label" style="margin:0;">学修模块</p>
-              <button type="button" id="btn-add-module" class="btn ops-mini" style="color:inherit;border-color:var(--line);">+ 添加</button>
+              <div class="ops-side-head__btns">
+                <button type="button" id="btn-xuequ" class="btn ops-mini" style="color:inherit;border-color:var(--line);">学区</button>
+                <button type="button" id="btn-add-module" class="btn ops-mini" style="color:inherit;border-color:var(--line);">+ 模块</button>
+              </div>
             </div>
             <div class="ops-side-filters">
               <input type="search" id="mod-search" class="ops-side-search" placeholder="搜索模块…" autocomplete="off" />
@@ -135,8 +138,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   </section>
 </BaseLayout>
 
-<link rel="stylesheet" href="/ops-app.css?v=20260817g" />
-<script src="/ops-app.js?v=20260817h" defer></script>
+<link rel="stylesheet" href="/ops-app.css?v=20260822f" />
+<script src="/ops-app.js?v=20260822f" defer></script>
 <script is:inline>
   // 问题反馈：与学修/书籍/好文同一排 tab，点开后先列表再看全文
   (() => {

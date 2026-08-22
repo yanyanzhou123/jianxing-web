@@ -20,13 +20,16 @@ import { site } from '../data/site';
     </div>
   </section>
 
-  <script src="/jx-catalog.js?v=20260816e" defer></script>
+  <script src="/jx-catalog.js?v=20260822e" defer></script>
   <script is:inline>
   document.addEventListener('DOMContentLoaded', async () => {
     const root = document.getElementById('home-sections');
     try {
-      const catalog = await JX.fetchCatalog({ lite: true });
-      root.innerHTML = JX.renderHomeSections(catalog, { mode: 'stairs' });
+      const [catalog, articles] = await Promise.all([
+        JX.fetchCatalog({ lite: true }),
+        JX.fetchArticles().catch(() => []),
+      ]);
+      root.innerHTML = JX.renderHomeSections(catalog, { mode: 'stairs', articles });
     } catch (e) {
       console.error('home sections load failed', e);
       root.innerHTML = `<p>加载失败：${JX.escape(e.message || e)}</p>`;

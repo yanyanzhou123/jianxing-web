@@ -97,11 +97,12 @@
         ? JX.findLesson(catalog, recent.moduleSlug, recent.lessonSlug)
         : null;
       if (found) title = `${found.mod.title} · ${found.lesson.title}`;
+      const coming = found && found.mod && found.mod.status !== 'open';
       continueHtml = `
         <section class="app-continue">
           <h2>继续学习</h2>
           <p>${escapeHtml(title)}${recent.completed ? '（已学完）' : ''}</p>
-          <a class="app-btn app-btn--solid" href="${lessonHref(recent.moduleSlug, recent.lessonSlug, recent.lastTab)}">接着学</a>
+          <a class="app-btn app-btn--solid" href="${lessonHref(recent.moduleSlug, recent.lessonSlug, recent.lastTab)}"${coming ? ' data-jx-coming="1"' : ''}>接着学</a>
         </section>`;
     }
 
@@ -115,6 +116,7 @@
           }
         }
         if (!lessons.length) return '';
+        const comingAttr = mod.status !== 'open' ? ' data-jx-coming="1"' : '';
         const list = lessons
           .map((les) => {
             const key = `${mod.slug}/${les.slug}`;
@@ -122,7 +124,7 @@
             let badge = '';
             if (p?.completed) badge = '<span class="app-badge app-badge--done">已学完</span>';
             else if (p && p.positionSec > 0) badge = `<span class="app-badge">播至 ${Math.floor(p.positionSec)}s</span>`;
-            return `<li><a href="${lessonHref(mod.slug, les.slug, p?.lastTab)}"><span class="app-lesson-title">${escapeHtml(les.title)}</span>${badge}</a></li>`;
+            return `<li><a href="${lessonHref(mod.slug, les.slug, p?.lastTab)}"${comingAttr}><span class="app-lesson-title">${escapeHtml(les.title)}</span>${badge}</a></li>`;
           })
           .join('');
         return `<section class="app-mod"><h2>${escapeHtml(mod.title)}</h2><ul class="app-lesson-list">${list}</ul></section>`;

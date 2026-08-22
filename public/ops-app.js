@@ -32,12 +32,35 @@
   let navFilterReady = false;
   let modSearch = '';
   let modStatusFilter = 'all';
-  const CATALOG_CACHE_KEY = 'jx-ops-catalog-v1';
+  const CATALOG_CACHE_KEY = 'jx-ops-catalog-v2';
   let catalogFull = false;
   let catalogFullPromise = null;
 
-  /** 与前台学修分区一致 */
-  const OPS_SECTIONS = [
+  /** 学区默认名单；课表有 xuequ 时以课表为准。新学区默认不上首页台阶。 */
+  const DEFAULT_XUEQU = [
+    { id: 'xq-jichu', title: '基础课', onStairs: true, groups: [] },
+    { id: 'xq-gonggong', title: '公共学修', onStairs: true, groups: [] },
+    {
+      id: 'xq-zhuanye',
+      title: '专业课',
+      onStairs: true,
+      groups: [
+        { id: 'xz-qianxing', title: '大圆满前行' },
+        { id: 'xz-guanglun', title: '菩提道次第广论' },
+      ],
+    },
+    { id: 'xq-xuanxiu', title: '见行选修', onStairs: false, groups: [] },
+  ];
+  const SHIXIU_SLUGS = new Set([
+    'shixiu-zongshe',
+    'shixiu-renge',
+    'shixiu-yinguo',
+    'shixiu-chuli',
+    'shixiu-cibei',
+    'shixiu-kongxing',
+    'shixiu-zhenshiu',
+  ]);
+  const LEGACY_SECTION_SLUGS = [
     { title: '基础课', slugs: ['mod-fngg2o9', 'mod-1n1ezwq'] },
     {
       title: '公共学修',
@@ -46,39 +69,96 @@
     {
       title: '专业课',
       groups: [
-        {
-          title: '大圆满前行',
-          slugs: ['mod-3dup9xj', 'wujiaxing', 'shangshi', 'qianxing'],
-        },
-        {
-          title: '菩提道次第广论',
-          slugs: ['fayuanwen', 'shesong', 'guanglun'],
-        },
-      ],
-    },
-    {
-      title: '实修篇',
-      slugs: [
-        'shixiu-zongshe',
-        'shixiu-renge',
-        'shixiu-yinguo',
-        'shixiu-chuli',
-        'shixiu-cibei',
-        'shixiu-kongxing',
-        'shixiu-zhenshiu',
+        { title: '大圆满前行', slugs: ['mod-3dup9xj', 'wujiaxing', 'shangshi', 'qianxing'] },
+        { title: '菩提道次第广论', slugs: ['fayuanwen', 'shesong', 'guanglun'] },
       ],
     },
     { title: '见行选修', slugs: ['buli'] },
   ];
 
-  const OPS_SECTION_TITLES = OPS_SECTIONS.map((s) => s.title);
-  const OPS_PRO_GROUPS = (OPS_SECTIONS.find((s) => s.title === '专业课')?.groups || []).map(
-    (g) => g.title,
-  );
+  function cloneDefaultXuequ() {
+    return DEFAULT_XUEQU.map((x) => ({
+      id: x.id,
+      title: x.title,
+      onStairs: !!x.onStairs,
+      groups: (x.groups || []).map((g) => ({ id: g.id, title: g.title })),
+      relatedLinks: [],
+    }));
+  }
+
+  function getXuequ() {
+    if (!catalog) return cloneDefaultXuequ();
+    if (!Array.isArray(catalog.xuequ) || !catalog.xuequ.length) {
+      catalog.xuequ = cloneDefaultXuequ();
+    }
+    return catalog.xuequ;
+  }
+
+  function isShixiuModule(mod) {
+    const slug = String(mod?.slug || '');
+    return (
+      SHIXIU_SLUGS.has(slug) ||
+      String(mod?.section || '').trim() === '实修篇' ||
+      String(mod?.sectionId || '') === 'xq-shixiu' ||
+      slug.startsWith('shixiu-')
+    );
+  }
+
+  function stripShixiu(setDirtyIfChanged) {
+    if (!catalog?.modules) return 0;
+    const before = catalog.modules.length;
+    catalog.modules = catalog.modules.filter((m) => !isShixiuModule(m));
+    if (Array.isArray(catalog.xuequ)) {
+      catalog.xuequ = catalog.xuequ.filter((x) => x && x.title !== '实修篇' && x.id !== 'xq-shixiu');
+    }
+    const n = before - catalog.modules.length;
+    if (n && setDirtyIfChanged) setDirty(true);
+    return n;
+  }
+
+  function findXuequ(idOrTitle) {
+    const key = String(idOrTitle || '').trim();
+    if (!key || key === '未归类') return null;
+    return (
+      getXuequ().find((x) => x.id === key) || getXuequ().find((x) => x.title === key) || null
+    );
+  }
+
+  function findGroup(xq, idOrTitle) {
+    if (!xq || !idOrTitle) return null;
+    const key = String(idOrTitle).trim();
+    return xq.groups.find((g) => g.id === key) || xq.groups.find((g) => g.title === key) || null;
+  }
+
+  function syncModuleXuequFields(mod) {
+    if (!mod) return;
+    if (mod.section === '未归类') {
+      delete mod.sectionId;
+      delete mod.groupId;
+      delete mod.sectionGroup;
+      return;
+    }
+    const xq = findXuequ(mod.sectionId || mod.section);
+    if (!xq) {
+      delete mod.sectionId;
+      delete mod.groupId;
+      return;
+    }
+    mod.sectionId = xq.id;
+    mod.section = xq.title;
+    const g = findGroup(xq, mod.groupId || mod.sectionGroup);
+    if (g) {
+      mod.groupId = g.id;
+      mod.sectionGroup = g.title;
+    } else {
+      delete mod.groupId;
+      delete mod.sectionGroup;
+    }
+  }
 
   function legacyPlacementMap() {
     const map = Object.create(null);
-    for (const sec of OPS_SECTIONS) {
+    for (const sec of LEGACY_SECTION_SLUGS) {
       for (const slug of sec.slugs || []) map[slug] = { section: sec.title, group: '' };
       for (const g of sec.groups || []) {
         for (const slug of g.slugs || []) map[slug] = { section: sec.title, group: g.title || '' };
@@ -88,24 +168,37 @@
   }
 
   function resolveOpsModSection(mod) {
-    if (!mod) return { section: '', group: '' };
-    if (mod.section === '未归类') return { section: '', group: '' };
+    if (!mod) return { section: '', group: '', sectionId: '', groupId: '' };
+    if (mod.section === '未归类') return { section: '', group: '', sectionId: '', groupId: '' };
+    const xq = findXuequ(mod.sectionId || mod.section);
+    if (xq) {
+      const g = findGroup(xq, mod.groupId || mod.sectionGroup);
+      return {
+        section: xq.title,
+        group: g ? g.title : '',
+        sectionId: xq.id,
+        groupId: g ? g.id : '',
+      };
+    }
     const sec = String(mod.section ?? '').trim();
-    if (sec) return { section: sec, group: String(mod.sectionGroup || '').trim() };
+    if (sec) return { section: sec, group: String(mod.sectionGroup || '').trim(), sectionId: '', groupId: '' };
     const legacy = legacyPlacementMap()[mod.slug];
-    if (legacy) return { section: legacy.section, group: legacy.group || '' };
-    return { section: '', group: '' };
+    if (legacy) return { section: legacy.section, group: legacy.group || '', sectionId: '', groupId: '' };
+    return { section: '', group: '', sectionId: '', groupId: '' };
   }
 
   function backfillModuleSections() {
+    getXuequ();
     const map = legacyPlacementMap();
     for (const mod of catalog?.modules || []) {
-      if (mod.section != null && String(mod.section).trim() !== '') continue;
-      const legacy = map[mod.slug];
-      if (legacy) {
-        mod.section = legacy.section;
-        mod.sectionGroup = legacy.group || '';
+      if (!(mod.section != null && String(mod.section).trim() !== '') && !mod.sectionId) {
+        const legacy = map[mod.slug];
+        if (legacy) {
+          mod.section = legacy.section;
+          mod.sectionGroup = legacy.group || '';
+        }
       }
+      syncModuleXuequFields(mod);
     }
   }
 
@@ -155,12 +248,40 @@
     return status === 'open' ? '开放中' : '即将开放';
   }
 
+  let lastXuequId = '';
+
+  function assignModToXuequ(mod, xq) {
+    if (!mod) return;
+    if (!xq) {
+      mod.section = '未归类';
+      delete mod.sectionId;
+      delete mod.groupId;
+      delete mod.sectionGroup;
+      return;
+    }
+    mod.sectionId = xq.id;
+    mod.section = xq.title;
+    delete mod.groupId;
+    delete mod.sectionGroup;
+  }
+
+  function xuequForNewModule() {
+    if (view === 'xuequ') {
+      return findXuequ(lastXuequId) || getXuequ()[getXuequ().length - 1] || null;
+    }
+    const cur = currentModule();
+    if (!cur) return null;
+    const p = resolveOpsModSection(cur);
+    return findXuequ(p.sectionId || p.section);
+  }
+
   function addModule() {
     const n = (catalog.modules?.length || 0) + 1;
     const title = `新模块 ${n}`;
     // 网址标识自动生成，运营无需填写；一旦生成不随标题改动，以免音视频路径错乱
     const slug = uniqueModSlug(`mod-${uid('m')}`, -1);
-    catalog.modules.push({
+    const xq = xuequForNewModule();
+    const mod = {
       id: slug,
       slug,
       title,
@@ -171,16 +292,25 @@
       intro: '',
       references: [],
       chapters: [],
-    });
+    };
+    assignModToXuequ(mod, xq);
+    catalog.modules.push(mod);
     moduleIndex = catalog.modules.length - 1;
     sideMode = 'module';
     view = 'structure';
     editPath = null;
     setDirty(true);
     collapsedNavGroups.delete('其他');
+    if (xq) collapsedNavGroups.delete(xq.id);
     renderModuleList();
     renderEditor();
-    showMsg(saveMsg, '已添加模块。可在「学修分区」下拉中选择归属；未选则出现在前台「未归类」。', true);
+    showMsg(
+      saveMsg,
+      xq
+        ? `已添加模块，学区是「${xq.title}」。可在下拉中改归属。`
+        : '已添加模块。请在「学区」下拉中选择归属；未选则出现在前台「未归类」。',
+      true,
+    );
   }
 
   function assetUrl(path) {
@@ -508,6 +638,11 @@
     if (!Array.isArray(catalog.references)) catalog.references = [];
     delete catalog.articleCollections;
     if (catalog.rev == null) catalog.rev = 0;
+    const removed = stripShixiu(false);
+    if (!Array.isArray(catalog.xuequ) || !catalog.xuequ.length) {
+      catalog.xuequ = cloneDefaultXuequ();
+    }
+    catalog.xuequ = catalog.xuequ.filter((x) => x && x.title !== '实修篇' && x.id !== 'xq-shixiu');
     catalog.modules.forEach((mod, i) => {
       if (mod.references?.length) {
         for (const r of mod.references) {
@@ -528,6 +663,10 @@
       if (!mod.shortTitle) mod.shortTitle = mod.title || '';
     });
     backfillModuleSections();
+    if (removed) {
+      if (moduleIndex >= catalog.modules.length) moduleIndex = Math.max(0, catalog.modules.length - 1);
+      setDirty(true);
+    }
   }
 
   async function ensureLessonBody(mod, les) {
@@ -710,12 +849,12 @@
         ? catalog.modules.find((m) => m.slug === modOrSlug)
         : modOrSlug;
     if (!mod) return false;
-    return resolveOpsModSection(mod).section === sec.title;
+    return resolveOpsModSection(mod).sectionId === sec.id || resolveOpsModSection(mod).section === sec.title;
   }
 
-  function findSectionTitleForMod(mod) {
-    const sec = resolveOpsModSection(mod).section;
-    return sec || '其他';
+  function findSectionNavKey(mod) {
+    const p = resolveOpsModSection(mod);
+    return p.sectionId || p.section || '其他';
   }
 
   function renderModButton(i) {
@@ -731,9 +870,16 @@
     </li>`;
   }
 
+  function inXuequ(p, sec) {
+    if (!p || !sec) return false;
+    if (p.sectionId && sec.id) return p.sectionId === sec.id;
+    return p.section === sec.title;
+  }
+
   function renderModsForSection(sec, used) {
     if (sec.groups?.length) {
       const known = new Set(sec.groups.map((g) => g.title));
+      const knownIds = new Set(sec.groups.map((g) => g.id));
       const blocks = sec.groups
         .map((g) => {
           const idxs = catalog.modules
@@ -741,7 +887,9 @@
             .filter((i) => {
               if (used.has(i)) return false;
               const p = resolveOpsModSection(catalog.modules[i]);
-              return p.section === sec.title && p.group === g.title;
+              if (!inXuequ(p, sec)) return false;
+              if (g.id && p.groupId) return p.groupId === g.id;
+              return p.group === g.title;
             });
           idxs.forEach((i) => used.add(i));
           const items = idxs
@@ -757,7 +905,9 @@
         .filter((i) => {
           if (used.has(i)) return false;
           const p = resolveOpsModSection(catalog.modules[i]);
-          return p.section === sec.title && !known.has(p.group);
+          if (!inXuequ(p, sec)) return false;
+          if (p.groupId && knownIds.has(p.groupId)) return false;
+          return !known.has(p.group);
         });
       orphanIdxs.forEach((i) => used.add(i));
       const orphanItems = orphanIdxs
@@ -773,7 +923,7 @@
       .map((_, i) => i)
       .filter((i) => {
         if (used.has(i)) return false;
-        return resolveOpsModSection(catalog.modules[i]).section === sec.title;
+        return inXuequ(resolveOpsModSection(catalog.modules[i]), sec);
       });
     idxs.forEach((i) => used.add(i));
     return `<ul class="ops-nav-group__body">${idxs
@@ -790,7 +940,7 @@
     appBox?.classList.toggle('is-feedback', isFeedback);
     grid?.classList.toggle('is-materials', sideMode === 'refs' || sideMode === 'articles');
     if (grid) grid.hidden = isFeedback;
-    if (passages) passages.hidden = sideMode !== 'module';
+    if (passages) passages.hidden = sideMode !== 'module' || view === 'xuequ';
     if (feedback) feedback.hidden = !isFeedback;
     document.querySelectorAll('.ops-ws-tab').forEach((btn) => {
       btn.classList.toggle('is-active', btn.dataset.ws === sideMode);
@@ -827,6 +977,10 @@
       return;
     }
     label.textContent = '学修';
+    if (view === 'xuequ') {
+      title.textContent = '学区设置';
+      return;
+    }
     const mod = currentModule();
     if (!mod) {
       title.textContent = '请选择模块';
@@ -871,7 +1025,7 @@
     view = 'structure';
     editPath = null;
     const mod = catalog.modules[i];
-    if (mod) collapsedNavGroups.delete(findSectionTitleForMod(mod));
+    if (mod) collapsedNavGroups.delete(findSectionNavKey(mod));
     renderModuleList();
     renderEditor();
     refreshDirtyBanner();
@@ -896,18 +1050,18 @@
     const parts = [];
     const currentMod = catalog.modules[moduleIndex];
 
-    for (const sec of OPS_SECTIONS) {
+    for (const sec of getXuequ()) {
       const body = renderModsForSection(sec, used);
       if (!String(body).includes('ops-nav-mod')) continue;
 
       const hasCurrent = sideMode === 'module' && sectionContainsModule(sec, currentMod);
-      const collapsed = isGroupCollapsed(sec.title, hasCurrent);
-      if (collapsed) collapsedNavGroups.add(sec.title);
-      else collapsedNavGroups.delete(sec.title);
+      const collapsed = isGroupCollapsed(sec.id || sec.title, hasCurrent);
+      if (collapsed) collapsedNavGroups.add(sec.id || sec.title);
+      else collapsedNavGroups.delete(sec.id || sec.title);
 
       parts.push(`
         <div class="ops-nav-group ${collapsed ? 'is-collapsed' : ''}">
-          <button type="button" class="ops-nav-group__head" data-toggle-group="${escapeHtml(sec.title)}">
+          <button type="button" class="ops-nav-group__head" data-toggle-group="${escapeHtml(sec.id || sec.title)}">
             <span>${escapeHtml(sec.title)}</span>
             <span>${collapsed ? '▸' : '▾'}</span>
           </button>
@@ -971,6 +1125,358 @@
     if (reload) reload.hidden = sideMode === 'feedback';
   }
 
+  function uniqueXuequTitle(base, exceptId) {
+    const root = String(base || '').trim() || '新学区';
+    let title = root;
+    let n = 2;
+    const list = getXuequ();
+    while (list.some((x) => x.id !== exceptId && x.title === title)) {
+      title = `${root} ${n++}`;
+    }
+    return title;
+  }
+
+  function addXuequ() {
+    const list = getXuequ();
+    const item = {
+      id: uid('xq'),
+      title: uniqueXuequTitle('新学区'),
+      onStairs: false,
+      groups: [],
+      relatedLinks: [],
+    };
+    list.push(item);
+    lastXuequId = item.id;
+    setDirty(true);
+    renderXuequView();
+    renderModuleList();
+    showMsg(
+      saveMsg,
+      `已添加学区「${item.title}」。点「+ 模块」才会在这个学区下开课；勾选上台阶后，空学区也会在首页占一格。`,
+      true,
+    );
+  }
+
+  function renameXuequ(id, title) {
+    const xq = findXuequ(id);
+    if (!xq) return;
+    xq.title = uniqueXuequTitle(String(title || '').trim() || xq.title, xq.id);
+    for (const mod of catalog.modules || []) {
+      if (mod.sectionId === xq.id) mod.section = xq.title;
+    }
+    setDirty(true);
+    renderModuleList();
+  }
+
+  function deleteXuequ(id) {
+    const list = getXuequ();
+    const xq = findXuequ(id);
+    if (!xq) return;
+    const n = (catalog.modules || []).filter((m) => inXuequ(resolveOpsModSection(m), xq)).length;
+    if (
+      !confirm(
+        n
+          ? `删除学区「${xq.title}」？其下 ${n} 个模块将变为未归类。`
+          : `删除学区「${xq.title}」？`,
+      )
+    ) {
+      return;
+    }
+    for (const mod of catalog.modules || []) {
+      if (inXuequ(resolveOpsModSection(mod), xq)) {
+        mod.section = '未归类';
+        delete mod.sectionId;
+        delete mod.groupId;
+        delete mod.sectionGroup;
+      }
+    }
+    catalog.xuequ = list.filter((x) => x.id !== id);
+    setDirty(true);
+    renderXuequView();
+    renderModuleList();
+  }
+
+  function moveXuequ(id, dir) {
+    const list = getXuequ();
+    const i = list.findIndex((x) => x.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const tmp = list[i];
+    list[i] = list[j];
+    list[j] = tmp;
+    setDirty(true);
+    renderXuequView();
+    renderModuleList();
+  }
+
+  function addSubXuequ(xqId) {
+    const xq = findXuequ(xqId);
+    if (!xq) return;
+    if (!Array.isArray(xq.groups)) xq.groups = [];
+    let title = '新子学区';
+    let n = 2;
+    while (xq.groups.some((g) => g.title === title)) title = `新子学区 ${n++}`;
+    xq.groups.push({ id: uid('xz'), title });
+    setDirty(true);
+    renderXuequView();
+    renderModuleList();
+  }
+
+  function renameGroup(xqId, gId, title) {
+    const xq = findXuequ(xqId);
+    const g = findGroup(xq, gId);
+    if (!g) return;
+    g.title = String(title || '').trim() || g.title;
+    for (const mod of catalog.modules || []) {
+      if (mod.groupId === g.id) mod.sectionGroup = g.title;
+    }
+    setDirty(true);
+    renderModuleList();
+  }
+
+  function deleteGroup(xqId, gId) {
+    const xq = findXuequ(xqId);
+    if (!xq) return;
+    const g = findGroup(xq, gId);
+    if (!g) return;
+    if (!confirm(`删除子学区「${g.title}」？该组模块仍留在「${xq.title}」，只是不再分子组。`)) return;
+    for (const mod of catalog.modules || []) {
+      if (mod.groupId === g.id || (mod.sectionId === xq.id && mod.sectionGroup === g.title)) {
+        delete mod.groupId;
+        delete mod.sectionGroup;
+      }
+    }
+    xq.groups = xq.groups.filter((x) => x.id !== gId);
+    setDirty(true);
+    renderXuequView();
+    renderModuleList();
+  }
+
+  function ensureRelatedLinks(xq) {
+    if (!xq) return [];
+    if (!Array.isArray(xq.relatedLinks)) xq.relatedLinks = [];
+    return xq.relatedLinks;
+  }
+
+  function addArticleRelatedLink(xqId) {
+    const xq = findXuequ(xqId);
+    if (!xq) return;
+    if (!articleCollections.length) {
+      showMsg(saveMsg, '请先在「公众号好文」里添加集合，再回来挂。', false);
+      return;
+    }
+    const first = articleCollections[0];
+    ensureRelatedLinks(xq).push({
+      id: uid('rl'),
+      kind: 'article',
+      title: '',
+      collectionId: first.id,
+      articleId: '',
+      url: '',
+    });
+    setDirty(true);
+    renderXuequView();
+  }
+
+  function addUrlRelatedLink(xqId) {
+    const xq = findXuequ(xqId);
+    if (!xq) return;
+    ensureRelatedLinks(xq).push({
+      id: uid('rl'),
+      kind: 'url',
+      title: '',
+      url: '',
+      collectionId: '',
+      articleId: '',
+    });
+    setDirty(true);
+    renderXuequView();
+  }
+
+  function updateRelatedLink(xqId, rlId, field, value) {
+    const xq = findXuequ(xqId);
+    const row = ensureRelatedLinks(xq).find((r) => r.id === rlId);
+    if (!row) return;
+    const next = String(value || '').trim();
+    if (field === 'collectionId') {
+      row.kind = 'article';
+      row.collectionId = next;
+      row.articleId = '';
+      row.url = '';
+    } else if (field === 'articleId') {
+      row.kind = 'article';
+      row.articleId = next;
+    } else {
+      row[field] = next;
+    }
+    setDirty(true);
+  }
+
+  function relatedLinkRowHtml(r) {
+    const kind = r.kind === 'article' || r.collectionId ? 'article' : 'url';
+    if (kind === 'url') {
+      return `
+        <div class="ops-xq-link" data-rl="${escapeHtml(r.id)}" data-rl-kind="url">
+          <input data-rl-title placeholder="显示标题" value="${escapeHtml(r.title || '')}" />
+          <input data-rl-url placeholder="https://…" value="${escapeHtml(r.url || '')}" />
+          <button type="button" class="btn ops-mini" data-rl-del style="color:inherit;border-color:var(--line);">删除</button>
+        </div>`;
+    }
+    const col = articleCollections.find((c) => c.id === r.collectionId);
+    const colOpts = articleCollections
+      .map(
+        (c) =>
+          `<option value="${escapeHtml(c.id)}" ${c.id === r.collectionId ? 'selected' : ''}>${escapeHtml(c.title || '未命名集合')}${c.kind === 'link' ? '（链接）' : ''}</option>`,
+      )
+      .join('');
+    let extra = '<span class="ops-hint">请选择集合</span>';
+    if (col?.kind === 'link') {
+      extra = '<span class="ops-hint">链接型集合，点开即原文</span>';
+    } else if (col) {
+      extra = `<select data-rl-art>
+        <option value="">整个集合</option>
+        ${(col.articles || [])
+          .map(
+            (a) =>
+              `<option value="${escapeHtml(a.id)}" ${a.id === r.articleId ? 'selected' : ''}>${escapeHtml(a.title || '未命名文章')}</option>`,
+          )
+          .join('')}
+      </select>`;
+    }
+    return `
+      <div class="ops-xq-link ops-xq-link--art" data-rl="${escapeHtml(r.id)}" data-rl-kind="article">
+        <select data-rl-col>
+          <option value="">选择好文集合…</option>
+          ${colOpts}
+        </select>
+        ${extra}
+        <input data-rl-title placeholder="显示标题（可空，默认用好文名）" value="${escapeHtml(r.title || '')}" />
+        <button type="button" class="btn ops-mini" data-rl-del style="color:inherit;border-color:var(--line);">删除</button>
+      </div>`;
+  }
+
+  function deleteRelatedLink(xqId, rlId) {
+    const xq = findXuequ(xqId);
+    if (!xq) return;
+    xq.relatedLinks = ensureRelatedLinks(xq).filter((r) => r.id !== rlId);
+    setDirty(true);
+    renderXuequView();
+  }
+
+  function moveGroup(xqId, gId, dir) {
+    const xq = findXuequ(xqId);
+    if (!xq || !Array.isArray(xq.groups)) return;
+    const i = xq.groups.findIndex((g) => g.id === gId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= xq.groups.length) return;
+    const tmp = xq.groups[i];
+    xq.groups[i] = xq.groups[j];
+    xq.groups[j] = tmp;
+    setDirty(true);
+    renderXuequView();
+    renderModuleList();
+  }
+
+  function renderXuequView() {
+    const list = getXuequ();
+    editor.innerHTML = `
+      <p class="ops-label">学区 / 子学区</p>
+      <p class="ops-hint">列表从上到下就是前台顺序。点「上移」「下移」调整。勾选「上首页台阶」后会出现在首页次第；<strong>台阶上要有课，请把模块的「学区」选成这一项</strong>。新建学区不会自动长出模块，请再点「+ 模块」。</p>
+      <div class="ops-row" style="margin:0.5rem 0 0.85rem;">
+        <button type="button" class="btn ops-mini" id="xq-add" style="color:inherit;border-color:var(--line);">+ 添加学区</button>
+      </div>
+      <div id="xq-list">
+        ${list
+          .map(
+            (x, i) => `
+          <div class="ops-xq-card" data-xq="${escapeHtml(x.id)}">
+            <div class="ops-xq-card__head">
+              <strong class="ops-xq-card__ord">学区 ${i + 1}</strong>
+              <div class="ops-xq-card__sort">
+                <button type="button" class="btn ops-mini ops-move-text" data-xq-up ${i === 0 ? 'disabled' : ''}>上移</button>
+                <button type="button" class="btn ops-mini ops-move-text" data-xq-down ${i >= list.length - 1 ? 'disabled' : ''}>下移</button>
+                <button type="button" class="btn ops-mini" data-xq-del style="color:inherit;border-color:var(--line);">删除</button>
+              </div>
+            </div>
+            <label class="ops-field">名称
+              <input data-xq-title value="${escapeHtml(x.title)}" />
+            </label>
+            <label class="ops-check"><input type="checkbox" data-xq-stairs ${x.onStairs ? 'checked' : ''} /> 上首页台阶（次第修学）</label>
+            <p class="ops-label" style="margin:0.65rem 0 0.25rem;">子学区</p>
+            ${(x.groups || [])
+              .map(
+                (g, gi) => `
+              <div class="ops-xq-sub" data-xz="${escapeHtml(g.id)}">
+                <span class="ops-xq-sub__ord">${gi + 1}</span>
+                <input data-xz-title value="${escapeHtml(g.title)}" />
+                <button type="button" class="btn ops-mini ops-move-text" data-xz-up ${gi === 0 ? 'disabled' : ''}>上移</button>
+                <button type="button" class="btn ops-mini ops-move-text" data-xz-down ${gi >= (x.groups || []).length - 1 ? 'disabled' : ''}>下移</button>
+                <button type="button" class="btn ops-mini" data-xz-del style="color:inherit;border-color:var(--line);">删除</button>
+              </div>`,
+              )
+              .join('') || '<p class="ops-hint">暂无子学区。有子学区时，模块可再选一层。</p>'}
+            <button type="button" class="btn ops-mini" data-xz-add style="color:inherit;border-color:var(--line);margin-top:0.35rem;">+ 添加子学区</button>
+            <p class="ops-label" style="margin:0.85rem 0 0.25rem;">首页相关链接</p>
+            <p class="ops-hint">出现在该学区模块列表下方。优先从好文挂入；改好文标题或链接，首页会跟着变。</p>
+            ${(x.relatedLinks || []).map(relatedLinkRowHtml).join('') || '<p class="ops-hint">暂无链接。</p>'}
+            <div class="ops-row" style="margin-top:0.35rem;gap:0.35rem;">
+              <button type="button" class="btn ops-mini" data-rl-add-art style="color:inherit;border-color:var(--line);">+ 从好文挂入</button>
+              <button type="button" class="btn ops-mini" data-rl-add-url style="color:inherit;border-color:var(--line);">+ 添加外链</button>
+            </div>
+          </div>`,
+          )
+          .join('')}
+      </div>`;
+    $('xq-add')?.addEventListener('click', addXuequ);
+    editor.querySelectorAll('.ops-xq-card').forEach((card) => {
+      const id = card.dataset.xq;
+      card.querySelector('[data-xq-title]')?.addEventListener('change', (e) => {
+        lastXuequId = id;
+        renameXuequ(id, e.target.value);
+        e.target.value = findXuequ(id)?.title || e.target.value;
+      });
+      card.querySelector('[data-xq-stairs]')?.addEventListener('change', (e) => {
+        const xq = findXuequ(id);
+        if (!xq) return;
+        xq.onStairs = !!e.target.checked;
+        setDirty(true);
+      });
+      card.querySelector('[data-xq-up]')?.addEventListener('click', () => moveXuequ(id, -1));
+      card.querySelector('[data-xq-down]')?.addEventListener('click', () => moveXuequ(id, 1));
+      card.querySelector('[data-xq-del]')?.addEventListener('click', () => deleteXuequ(id));
+      card.querySelector('[data-xz-add]')?.addEventListener('click', () => addSubXuequ(id));
+      card.querySelector('[data-rl-add-art]')?.addEventListener('click', () => addArticleRelatedLink(id));
+      card.querySelector('[data-rl-add-url]')?.addEventListener('click', () => addUrlRelatedLink(id));
+      card.querySelectorAll('.ops-xq-link').forEach((row) => {
+        const rid = row.dataset.rl;
+        row.querySelector('[data-rl-col]')?.addEventListener('change', (e) => {
+          updateRelatedLink(id, rid, 'collectionId', e.target.value);
+          renderXuequView();
+        });
+        row.querySelector('[data-rl-art]')?.addEventListener('change', (e) => {
+          updateRelatedLink(id, rid, 'articleId', e.target.value);
+        });
+        row.querySelector('[data-rl-title]')?.addEventListener('change', (e) => {
+          updateRelatedLink(id, rid, 'title', e.target.value);
+        });
+        row.querySelector('[data-rl-url]')?.addEventListener('change', (e) => {
+          updateRelatedLink(id, rid, 'url', e.target.value);
+        });
+        row.querySelector('[data-rl-del]')?.addEventListener('click', () => deleteRelatedLink(id, rid));
+      });
+      card.querySelectorAll('.ops-xq-sub').forEach((row) => {
+        const gid = row.dataset.xz;
+        row.querySelector('[data-xz-title]')?.addEventListener('change', (e) => {
+          renameGroup(id, gid, e.target.value);
+          e.target.value = findGroup(findXuequ(id), gid)?.title || e.target.value;
+        });
+        row.querySelector('[data-xz-up]')?.addEventListener('click', () => moveGroup(id, gid, -1));
+        row.querySelector('[data-xz-down]')?.addEventListener('click', () => moveGroup(id, gid, 1));
+        row.querySelector('[data-xz-del]')?.addEventListener('click', () => deleteGroup(id, gid));
+      });
+    });
+  }
+
   function renderEditor() {
     updateWorkspaceChrome();
     if (sideMode === 'feedback') return;
@@ -980,6 +1486,11 @@
     }
     if (sideMode === 'articles') {
       renderArticleCollectionsView();
+      return;
+    }
+    if (view === 'xuequ') {
+      renderXuequView();
+      updateContextHeader();
       return;
     }
 
@@ -1396,32 +1907,36 @@
       </label>
       ${(() => {
         const place = resolveOpsModSection(mod);
-        const secVal = mod.section === '未归类' ? '未归类' : place.section || '未归类';
-        const groupVal = place.group || '';
-        const secOpts = ['未归类', ...OPS_SECTION_TITLES]
-          .map(
-            (t) =>
-              `<option value="${escapeHtml(t)}" ${secVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`,
-          )
-          .join('');
-        const groupOpts = ['', ...OPS_PRO_GROUPS]
-          .map(
-            (t) =>
-              `<option value="${escapeHtml(t)}" ${groupVal === t ? 'selected' : ''}>${
-                t ? escapeHtml(t) : '（无子组）'
-              }</option>`,
-          )
-          .join('');
+        const secVal =
+          mod.section === '未归类' ? '未归类' : place.sectionId || place.section || '未归类';
+        const xq = findXuequ(secVal);
+        const groupVal = place.groupId || place.group || '';
+        const secOpts = [
+          `<option value="未归类" ${secVal === '未归类' ? 'selected' : ''}>未归类</option>`,
+          ...getXuequ().map(
+            (x) =>
+              `<option value="${escapeHtml(x.id)}" ${
+                x.id === secVal || x.title === secVal ? 'selected' : ''
+              }>${escapeHtml(x.title)}</option>`,
+          ),
+        ].join('');
+        const groupOpts = [
+          `<option value="">（无子学区）</option>`,
+          ...(xq?.groups || []).map(
+            (g) =>
+              `<option value="${escapeHtml(g.id)}" ${
+                g.id === groupVal || g.title === groupVal ? 'selected' : ''
+              }>${escapeHtml(g.title)}</option>`,
+          ),
+        ].join('');
         return `
-      <label class="ops-field">学修分区
-        <select data-mod="section" id="mod-section">${secOpts}</select>
+      <label class="ops-field">学区
+        <select data-mod="sectionId" id="mod-section">${secOpts}</select>
       </label>
-      <label class="ops-field" id="mod-section-group-wrap" ${
-        secVal === '专业课' ? '' : 'hidden'
-      }>专业课子组
-        <select data-mod="sectionGroup" id="mod-section-group">${groupOpts}</select>
+      <label class="ops-field" id="mod-section-group-wrap" ${xq?.groups?.length ? '' : 'hidden'}>子学区
+        <select data-mod="groupId" id="mod-section-group">${groupOpts}</select>
       </label>
-      <p class="ops-hint">分区决定前台学修页出现位置；选「未归类」则出现在「未归类」。</p>`;
+      <p class="ops-hint">学区决定学修页出现位置。是否上首页台阶请到左侧「学区」里勾选。选「未归类」则出现在「未归类」。</p>`;
       })()}
       <label class="ops-field">摘要<textarea data-mod="summary" rows="3">${escapeHtml(mod.summary || '')}</textarea></label>
 
@@ -1468,23 +1983,55 @@
         }
         if (key === 'title') mod.shortTitle = input.value;
         if (key === 'summary') mod.intro = input.value;
-        if (key === 'section') {
-          if (input.value !== '专业课') mod.sectionGroup = '';
+        if (key === 'sectionId') {
+          if (input.value === '未归类') {
+            mod.section = '未归类';
+            delete mod.sectionId;
+            delete mod.groupId;
+            delete mod.sectionGroup;
+          } else {
+            const xq = findXuequ(input.value);
+            if (xq) {
+              mod.sectionId = xq.id;
+              mod.section = xq.title;
+            }
+            delete mod.groupId;
+            delete mod.sectionGroup;
+          }
+          const xq = findXuequ(mod.sectionId);
           const wrap = $('mod-section-group-wrap');
-          if (wrap) wrap.hidden = input.value !== '专业课';
+          if (wrap) wrap.hidden = !(xq?.groups?.length);
           const gSel = $('mod-section-group');
-          if (gSel && input.value !== '专业课') gSel.value = '';
+          if (gSel) {
+            gSel.value = '';
+            gSel.innerHTML =
+              `<option value="">（无子学区）</option>` +
+              (xq?.groups || [])
+                .map((g) => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.title)}</option>`)
+                .join('');
+          }
+        }
+        if (key === 'groupId') {
+          const xqNow = findXuequ(mod.sectionId);
+          const g = findGroup(xqNow, input.value);
+          if (g) {
+            mod.groupId = g.id;
+            mod.sectionGroup = g.title;
+          } else {
+            delete mod.groupId;
+            delete mod.sectionGroup;
+          }
         }
         setDirty(true);
-        if (key === 'title' || key === 'status' || key === 'section' || key === 'sectionGroup') {
+        if (key === 'title' || key === 'status' || key === 'sectionId' || key === 'groupId') {
           renderModuleList();
         }
-        if (key === 'section') updateContextHeader();
+        if (key === 'sectionId') updateContextHeader();
       };
       input.addEventListener('change', onChange);
       input.addEventListener('input', () => {
         const key = input.getAttribute('data-mod');
-        if (key === 'status' || key === 'section' || key === 'sectionGroup') return;
+        if (key === 'status' || key === 'sectionId' || key === 'groupId' || key === 'section' || key === 'sectionGroup') return;
         mod[key] = input.value;
         if (key === 'title') mod.shortTitle = input.value;
         if (key === 'summary') mod.intro = input.value;
@@ -1630,6 +2177,7 @@
             audioPath: '',
             videoPath: '',
             videoPathSd: '',
+            createdAt: new Date().toISOString(),
           });
           setDirty(true);
           renderEditor();
@@ -1858,7 +2406,9 @@
         </div>
 
         <p class="ops-label">课程内容</p>
-        <label class="ops-field">文字<textarea id="les-text">${escapeHtml(les.text || '')}</textarea></label>
+        <p class="ops-label">文字</p>
+        <p class="ops-hint">科判（甲一、乙二等）前台会自动当标题，不用改。其他整行标题，在行首写井号再空一格，例如 <code># 胜利道歌·天鼓妙音</code>；只想加粗几个字，用 <code>**加粗**</code>。文字框右下角可以按住往下拖，拉高了更方便对照编辑。</p>
+        <label class="ops-field"><textarea id="les-text" class="ops-les-text">${escapeHtml(les.text || '')}</textarea></label>
 
         <div class="ops-media-block" id="audio-block">
           <div class="ops-media-head">
@@ -2243,6 +2793,18 @@
       const mode = btn.dataset.ws || 'module';
       switchWorkspace(mode);
     });
+  });
+
+  $('btn-xuequ')?.addEventListener('click', () => {
+    if (!catalog) {
+      showMsg(saveMsg, '请先登录并加载目录', false);
+      return;
+    }
+    sideMode = 'module';
+    view = 'xuequ';
+    editPath = null;
+    renderModuleList();
+    renderEditor();
   });
 
   $('btn-add-module')?.addEventListener('click', () => {

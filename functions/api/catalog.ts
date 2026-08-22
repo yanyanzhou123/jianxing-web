@@ -12,6 +12,36 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function normalizeRelatedLinks(list: any): any[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((a: any) => {
+      const collectionId = String(a?.collectionId || '').trim();
+      const kind = a?.kind === 'article' || collectionId ? 'article' : 'url';
+      return {
+        id: String(a?.id || uid('rl')),
+        kind,
+        title: String(a?.title || '').trim(),
+        url: kind === 'url' ? String(a?.url || '').trim() : '',
+        collectionId: kind === 'article' ? collectionId : '',
+        articleId: kind === 'article' ? String(a?.articleId || '').trim() : '',
+      };
+    })
+    .filter((a) => (a.kind === 'article' ? !!a.collectionId : !!(a.title || a.url)));
+}
+
+function normalizeXuequ(list: any): any[] {
+  if (!Array.isArray(list)) return [];
+  return list.map((x: any) => ({
+    ...(x && typeof x === 'object' ? x : {}),
+    id: String(x?.id || uid('xq')),
+    title: String(x?.title || '').trim(),
+    onStairs: !!x?.onStairs,
+    groups: Array.isArray(x?.groups) ? x.groups : [],
+    relatedLinks: normalizeRelatedLinks(x?.relatedLinks),
+  }));
+}
+
 function countLessons(data: { modules?: any[] } | null | undefined): number {
   return (data?.modules || []).reduce((n, mod) => {
     return (
@@ -85,7 +115,7 @@ function flattenLesson(les: any) {
 /** 兼容旧版；v4 起课直接含文字/音视频，不再有小节 */
 function migrateCatalog(data: any) {
   if (!data || !Array.isArray(data.modules)) {
-    return { version: 4, rev: 0, references: [], modules: [] };
+    return { version: 4, rev: 0, references: [], xuequ: [], modules: [] };
   }
 
   const references: any[] = [];
@@ -154,6 +184,8 @@ function migrateCatalog(data: any) {
     if (mod.pathOrder != null && mod.pathOrder !== '') {
       out.pathOrder = Number(mod.pathOrder) || mod.pathOrder;
     }
+    if (mod.sectionId) out.sectionId = String(mod.sectionId).trim();
+    if (mod.groupId) out.groupId = String(mod.groupId).trim();
     return out;
   });
 
@@ -161,6 +193,7 @@ function migrateCatalog(data: any) {
     version: 4,
     rev: Number(data.rev) || 0,
     references,
+    xuequ: normalizeXuequ(data.xuequ),
     modules,
   };
 }
@@ -226,6 +259,7 @@ function liteCatalog(data: any) {
     version: data?.version || 4,
     rev: Number(data?.rev) || 0,
     references: data?.references || [],
+    xuequ: normalizeXuequ(data?.xuequ),
     modules: (data?.modules || []).map((mod: any) => {
       const out: any = {
         id: mod.id,
@@ -257,6 +291,8 @@ function liteCatalog(data: any) {
       if (out.section && out.section !== '未归类' && mod.sectionGroup) {
         out.sectionGroup = String(mod.sectionGroup).trim();
       }
+      if (mod.sectionId) out.sectionId = String(mod.sectionId).trim();
+      if (mod.groupId) out.groupId = String(mod.groupId).trim();
       if (mod.track) out.track = mod.track;
       if (mod.pathOrder != null && mod.pathOrder !== '') out.pathOrder = mod.pathOrder;
       return out;

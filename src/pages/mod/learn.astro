@@ -15,7 +15,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </article>
 
-  <script src="/jx-catalog.js?v=20260816e" defer></script>
+  <script src="/jx-catalog.js?v=20260822e" defer></script>
   <script src="/jx-progress.js?v=20260730g" defer></script>
   <script src="/jx-back-fab.js?v=20260813a" defer></script>
   <script is:inline>
@@ -86,7 +86,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const hasText = !!(lesson.text && String(lesson.text).trim());
 
       const FONT_KEY = 'jx-learn-font-size';
-      const FONT_SIZES = [15, 17, 19, 21, 23, 26];
+      const FONT_SIZES = [15, 17, 19, 21, 23, 26, 29, 32, 36];
       let fontSize = Number(localStorage.getItem(FONT_KEY)) || 19;
       if (!FONT_SIZES.includes(fontSize)) fontSize = 19;
 
@@ -154,6 +154,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <button type="button" class="learn-font-btn" id="font-smaller" aria-label="减小字体">A-</button>
             <span class="learn-font-label" id="font-size-label">${fontSize}</span>
             <button type="button" class="learn-font-btn" id="font-larger" aria-label="增大字体">A+</button>
+          </div>`;
+      }
+
+      function dockToolsHtml() {
+        return `
+          <div class="learn-dock__tools">
+            <button type="button" class="jx-audio__toggle learn-dock__collapse" aria-expanded="true" aria-controls="jx-audio-body" title="收起/展开播放器" data-label-expanded="收起" data-label-collapsed="展开">
+              <span class="jx-audio__toggle-label" aria-hidden="true">收起</span>
+              <span class="jx-audio__toggle-icon" aria-hidden="true">▴</span>
+            </button>
+            ${fontControlsHtml()}
           </div>`;
       }
 
@@ -283,7 +294,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                         : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
                     }
                   </div>
-                  ${fontControlsHtml()}
+                  ${dockToolsHtml()}
                 </div>
                 <p class="learn-dock__hint">可一边听音频，一边向下阅读文字</p>
               </div>
@@ -328,7 +339,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                       : `<p class="audio-box__empty">媒体域名未配置，无法播放</p>`
                   }
                 </div>
-                ${fontControlsHtml()}
+                ${dockToolsHtml()}
               </div>
               <p class="learn-dock__hint">可一边听音频，一边向下阅读文字</p>
             </div>
@@ -425,13 +436,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           const volBtn = wrap.querySelector('.jx-audio__vol-btn');
           const volIcon = wrap.querySelector('.jx-audio__icon-vol');
           const volRange = wrap.querySelector('.jx-audio__vol-range');
-          const toggleBtns = Array.from(wrap.querySelectorAll('.jx-audio__toggle'));
-          const toggleLabels = Array.from(wrap.querySelectorAll('.jx-audio__toggle-label'));
+          const dock = wrap.closest('.learn-listen-dock');
+          const toggleBtns = Array.from((dock || wrap).querySelectorAll('.jx-audio__toggle'));
+          const toggleLabels = Array.from((dock || wrap).querySelectorAll('.jx-audio__toggle-label'));
 
           const LS_COLLAPSED_KEY = 'jx_audio_collapsed';
           function applyCollapsedClass(collapsed) {
             wrap.classList.toggle('is-collapsed', collapsed);
-            toggleBtns.forEach((btn) => btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true'));
+            toggleBtns.forEach((btn) => {
+              btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+              const icon = btn.querySelector('.jx-audio__toggle-icon');
+              if (icon) icon.textContent = collapsed ? '▾' : '▴';
+            });
             toggleLabels.forEach((label) => {
               label.textContent = collapsed ? '展开' : '收起';
             });

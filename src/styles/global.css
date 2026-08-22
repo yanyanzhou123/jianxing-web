@@ -814,6 +814,45 @@ img {
   padding-left: 0.15rem;
 }
 
+.home-related {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.home-related__item a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.95rem 0.2rem;
+  border-top: 1px dashed var(--line);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s ease;
+}
+
+.home-related__item:last-child a {
+  border-bottom: 1px dashed var(--line);
+}
+
+.home-related__item a:hover {
+  background: rgba(47, 93, 78, 0.05);
+}
+
+.home-related__title {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  letter-spacing: 0.04em;
+  color: var(--jade-deep);
+}
+
+.home-related__go {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--jade);
+}
+
 .home-block--books .section__head p {
   margin-top: 0.35rem;
 }
@@ -1105,6 +1144,11 @@ img {
 .learn-page .learn-prose,
 .learn-page .learn-prose p {
   max-width: none;
+}
+
+/* 正文用 em 跟 A+/A-；避免手机端 .page-hero p { font-size: 0.95rem } 把段落钉死 */
+.learn-page .learn-prose p {
+  font-size: 1em;
 }
 
 .prose {
@@ -1440,8 +1484,8 @@ img {
 .learn-heading {
   margin: 2.4em 0 1.35em;
   font-family: var(--font-serif);
-  /* 用 em 相对正文，A+/A- 放大后标题仍比正文大 */
-  font-size: 1.32em;
+  /* 用 em 相对正文，A+/A- 时一起变；只比正文略大 */
+  font-size: 1.08em;
   font-weight: 700;
   line-height: 1.5;
   letter-spacing: 0.06em;
@@ -1522,6 +1566,17 @@ img {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 0.75rem;
+}
+
+.learn-dock__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-left: auto;
+}
+
+.learn-dock__collapse {
+  display: none;
 }
 
 .learn-font-controls {
@@ -1678,16 +1733,39 @@ img {
   .learn-heading {
     margin: 1.55em 0 0.85em;
     scroll-margin-top: 8rem;
-    font-size: 1.22em;
+    font-size: 1.08em;
   }
 
   .learn-text-toolbar {
     margin-bottom: 0.55rem;
   }
 
+  .learn-dock__tools {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .learn-dock__collapse {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 2.25rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--ink);
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .learn-listen-dock .jx-audio__toggle:not(.learn-dock__collapse) {
+    display: none;
+  }
+
   .learn-font-controls {
     flex: none;
-    width: 100%;
+    width: auto;
     margin-left: 0;
     justify-content: flex-end;
   }

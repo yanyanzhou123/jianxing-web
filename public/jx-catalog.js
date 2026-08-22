@@ -1,4 +1,4 @@
-/* jx-catalog v20260816e — HD/SD video paths */
+/* jx-catalog v20260822e — 课文支持 # 行标题 */
 window.JX = window.JX || {};
 
 /** 播放地址加版本，避开浏览器对旧 URL 的一年 immutable 缓存 */
@@ -46,8 +46,7 @@ JX.downloadHref = (path) => {
 
 JX.fetchCatalog = async (opts) => {
   const lite = !!(opts && opts.lite);
-  if (lite && JX._liteCatalog) return JX._liteCatalog;
-  const res = await fetch(lite ? '/api/catalog?lite=1' : '/api/catalog');
+  const res = await fetch(lite ? '/api/catalog?lite=1&v=20260822e' : '/api/catalog', { cache: 'no-store' });
   if (!res.ok) throw new Error('无法加载课程目录');
   const data = await res.json();
   if (lite) JX._liteCatalog = data;
@@ -59,7 +58,7 @@ JX.fetchLesson = async (moduleSlug, lessonSlug) => {
     mod: moduleSlug || '',
     id: lessonSlug || '',
   });
-  const res = await fetch(`/api/catalog?${qs}`);
+  const res = await fetch(`/api/catalog?${qs}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('无法加载课文');
   return res.json();
 };
@@ -67,12 +66,25 @@ JX.fetchLesson = async (moduleSlug, lessonSlug) => {
 JX.lessonCount = (mod) =>
   (mod.chapters || []).reduce((n, ch) => n + (ch.lessons?.length || 0), 0);
 
-/** 首页/学修：分区写死，条目按 slug 取模块 */
-JX.HOME_SECTIONS = [
+/** 学区默认名单。课表有 xuequ 时以前台课表为准。 */
+JX.DEFAULT_XUEQU = [
+  { id: 'xq-jichu', title: '基础课', onStairs: true, groups: [] },
+  { id: 'xq-gonggong', title: '公共学修', onStairs: true, groups: [] },
   {
-    title: '基础课',
-    slugs: ['mod-fngg2o9', 'mod-1n1ezwq'],
+    id: 'xq-zhuanye',
+    title: '专业课',
+    onStairs: true,
+    groups: [
+      { id: 'xz-qianxing', title: '大圆满前行' },
+      { id: 'xz-guanglun', title: '菩提道次第广论' },
+    ],
   },
+  { id: 'xq-xuanxiu', title: '见行选修', onStairs: false, groups: [] },
+];
+
+/** 旧版：按 slug 写死分区（模块尚未写 section 时回退） */
+JX.LEGACY_SECTION_SLUGS = [
+  { title: '基础课', slugs: ['mod-fngg2o9', 'mod-1n1ezwq'] },
   {
     title: '公共学修',
     slugs: ['mod-fdjm6e2', 'mod-dt23wzh', 'puxian', 'pingdeng', 'xiuxin', 'xinbaoshi'],
@@ -80,36 +92,81 @@ JX.HOME_SECTIONS = [
   {
     title: '专业课',
     groups: [
-      {
-        title: '大圆满前行',
-        slugs: ['mod-3dup9xj', 'wujiaxing', 'shangshi', 'qianxing'],
-      },
-      {
-        title: '菩提道次第广论',
-        slugs: ['fayuanwen', 'shesong', 'guanglun'],
-      },
+      { title: '大圆满前行', slugs: ['mod-3dup9xj', 'wujiaxing', 'shangshi', 'qianxing'] },
+      { title: '菩提道次第广论', slugs: ['fayuanwen', 'shesong', 'guanglun'] },
     ],
   },
-  {
-    title: '实修篇',
-    slugs: [
-      'shixiu-zongshe',
-      'shixiu-renge',
-      'shixiu-yinguo',
-      'shixiu-chuli',
-      'shixiu-cibei',
-      'shixiu-kongxing',
-      'shixiu-zhenshiu',
-    ],
-  },
-  {
-    title: '见行选修',
-    slugs: ['buli'],
-  },
+  { title: '见行选修', slugs: ['buli'] },
 ];
 
-/** @deprecated 书籍/材料已归「参考资料」，不再挂在学修目录 */
-JX.HOME_BOOKS = [];
+JX.getXuequ = (catalog) =>
+  Array.isArray(catalog?.xuequ) && catalog.xuequ.length ? catalog.xuequ : JX.DEFAULT_XUEQU;
+
+JX.isLatestXuequ = (sec) => String(sec?.title || '').trim() === '最新开示';
+
+JX.isLatestPlaceholderMod = (mod) => {
+  if (!mod) return false;
+  if (String(mod.title || '').trim() === '最新开示') return true;
+  return JX.resolveModSection(mod).section === '最新开示';
+};
+
+JX.formatLessonAge = (iso) => {
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const days = Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  if (days < 1) return '今天';
+  if (days < 7) return `${days}天前`;
+  if (days < 30) return `${Math.floor(days / 7)}周前`;
+  const months = Math.max(1, Math.floor(days / 30));
+  return `${months}个月前`;
+};
+
+JX.recentLessons = (catalog, months = 3) => {
+  const since = new Date();
+  since.setMonth(since.getMonth() - months);
+  const sinceMs = since.getTime();
+  const rows = [];
+  for (const mod of catalog?.modules || []) {
+    if (JX.isComing(mod) || JX.isLatestPlaceholderMod(mod)) continue;
+    for (const ch of mod.chapters || []) {
+      for (const les of ch.lessons || []) {
+        const at = Date.parse(les.createdAt || '');
+        if (!at || at < sinceMs) continue;
+        rows.push({ mod, chapter: ch, lesson: les, at });
+      }
+    }
+  }
+  rows.sort((a, b) => b.at - a.at);
+  return rows;
+};
+
+JX.renderLatestRail = (catalog) => {
+  const rows = JX.recentLessons(catalog);
+  const items = rows.length
+    ? `<ul class="home-latest__list">${rows
+        .map((row) => {
+          const href = JX.lessonHref(row.mod.slug, row.lesson.slug);
+          const modTitle = row.mod.shortTitle || row.mod.title || '';
+          return `
+        <li class="home-latest__item">
+          <a href="${href}">
+            <span class="home-latest__mod">${JX.escape(modTitle)}</span>
+            <span class="home-latest__title">${JX.escape(row.lesson.title || '未命名课')}</span>
+            <span class="home-latest__time">${JX.escape(JX.formatLessonAge(row.lesson.createdAt))}</span>
+          </a>
+        </li>`;
+        })
+        .join('')}</ul>`
+    : `<p class="home-latest__empty">近三个月暂无新课</p>`;
+  return `
+    <section class="home-block home-latest" aria-label="最新开示">
+      <div class="section__head">
+        <h2>最新开示</h2>
+        <p>近三个月新课</p>
+      </div>
+      ${items}
+    </section>`;
+};
 
 JX.modBySlug = (catalog, slug) =>
   (catalog?.modules || []).find((m) => m.slug === slug) || null;
@@ -118,7 +175,7 @@ JX.modBySlug = (catalog, slug) =>
 JX.legacySlugPlacement = () => {
   if (JX._legacyPlacement) return JX._legacyPlacement;
   const map = Object.create(null);
-  for (const sec of JX.HOME_SECTIONS || []) {
+  for (const sec of JX.LEGACY_SECTION_SLUGS || []) {
     for (const slug of sec.slugs || []) {
       map[slug] = { section: sec.title, group: '' };
     }
@@ -161,8 +218,13 @@ JX.modulesInSection = (catalog, sectionTitle, groupTitle) => {
   });
 };
 
-JX.unsectionedModules = (catalog) =>
-  (catalog?.modules || []).filter((m) => !JX.resolveModSection(m).section);
+JX.unsectionedModules = (catalog) => {
+  const titles = new Set((JX.getXuequ(catalog) || []).map((x) => x.title));
+  return (catalog?.modules || []).filter((m) => {
+    const p = JX.resolveModSection(m);
+    return !p.section || !titles.has(p.section);
+  });
+};
 
 JX.refByIdOrTitle = (catalog, id, title) => {
   const refs = catalog?.references || [];
@@ -196,6 +258,32 @@ JX.renderBookRow = (catalog, item) => {
     </li>`;
 };
 
+JX.isComing = (mod) => !!mod && mod.status !== 'open';
+
+JX.comingNotice = () => {
+  window.alert('即将开放');
+};
+
+JX.bindComingGuards = () => {
+  if (JX._comingBound) return;
+  JX._comingBound = true;
+  const block = (e) => {
+    const el = e.target && e.target.closest ? e.target.closest('[data-jx-coming]') : null;
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    JX.comingNotice();
+  };
+  document.addEventListener('click', block, true);
+  document.addEventListener('auxclick', block, true);
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', JX.bindComingGuards);
+} else {
+  JX.bindComingGuards();
+}
+
 JX.renderModuleRow = (mod, index) => {
   if (!mod) {
     return `
@@ -210,9 +298,10 @@ JX.renderModuleRow = (mod, index) => {
   const count = JX.lessonCount(mod);
   const open = mod.status === 'open';
   const meta = `${JX.escape(mod.statusLabel || (open ? '开放中' : '即将开放'))}${count ? ` · ${count} 课` : ''}`;
+  const comingAttr = open ? '' : ' data-jx-coming="1" aria-disabled="true"';
   return `
     <li class="${open ? 'is-open' : ''}">
-      <a href="${JX.moduleHref(mod.slug)}">
+      <a href="${JX.moduleHref(mod.slug)}"${comingAttr}>
         <span class="module-list__num">${String(index + 1).padStart(2, '0')}</span>
         <div>
           <p class="module-list__meta">${meta}</p>
@@ -233,17 +322,18 @@ JX.renderModList = (mods) =>
     .map((mod, i) => JX.renderModuleRow(mod, i))
     .join('')}</ul>`;
 
-/** 首页次第：基础课→实修篇 竖长台阶 */
-JX.HOME_STAIR_TITLES = ['基础课', '公共学修', '专业课', '实修篇'];
+/** 首页次第：勾选「上首页台阶」的学区；默认基础课→专业课 */
+JX.HOME_STAIR_TITLES = ['基础课', '公共学修', '专业课'];
 
 JX.renderStairModFromMod = (mod) => {
   if (!mod) {
     return `<li class="path-stairs__mod is-missing"><span>（缺失）</span></li>`;
   }
   const open = mod.status === 'open';
+  const comingAttr = open ? '' : ' data-jx-coming="1" aria-disabled="true"';
   return `
     <li class="path-stairs__mod ${open ? 'is-open' : 'is-soon'}">
-      <a href="${JX.moduleHref(mod.slug)}">${JX.escape(mod.title)}</a>
+      <a href="${JX.moduleHref(mod.slug)}"${comingAttr}>${JX.escape(mod.title)}</a>
     </li>`;
 };
 
@@ -272,96 +362,106 @@ JX.renderSectionModsBody = (catalog, sec) => {
   return JX.renderModList(JX.modulesInSection(catalog, sec.title, ''));
 };
 
-JX.renderHomeStairs = (catalog) => {
-  const pathSecs = (JX.HOME_SECTIONS || []).filter((s) =>
-    (JX.HOME_STAIR_TITLES || []).includes(s.title)
-  );
-  const items = pathSecs
-    .map((sec) => {
-      let modsHtml = '';
-      let anyOpen = false;
-      if (sec.groups?.length) {
-        const knownGroups = new Set(sec.groups.map((g) => g.title));
-        const groupLis = sec.groups
-          .map((g) => {
-            const mods = JX.modulesInSection(catalog, sec.title, g.title);
-            if (!mods.length) return '';
-            if (mods.some((m) => m.status === 'open')) anyOpen = true;
-            return `
-            <li class="path-stairs__group">
-              <span class="path-stairs__group-title">${JX.escape(g.title)}</span>
-              <ul class="path-stairs__mods">
-                ${mods.map((m) => JX.renderStairModFromMod(m)).join('')}
-              </ul>
-            </li>`;
-          })
-          .join('');
-        const orphans = JX.modulesInSection(catalog, sec.title).filter(
-          (m) => !knownGroups.has(JX.resolveModSection(m).group),
-        );
-        if (orphans.some((m) => m.status === 'open')) anyOpen = true;
-        const orphanLis = orphans.length
-          ? `<li class="path-stairs__group">
-              <span class="path-stairs__group-title">其他</span>
-              <ul class="path-stairs__mods">${orphans.map((m) => JX.renderStairModFromMod(m)).join('')}</ul>
-            </li>`
-          : '';
-        modsHtml = `<ul class="path-stairs__groups">${groupLis}${orphanLis}</ul>`;
-      } else {
-        const mods = JX.modulesInSection(catalog, sec.title, '');
-        anyOpen = mods.some((m) => m.status === 'open');
-        modsHtml = `<ul class="path-stairs__mods">${mods.map((m) => JX.renderStairModFromMod(m)).join('')}</ul>`;
-      }
-      return `
-        <li class="path-stairs__item ${anyOpen ? 'is-open' : 'is-soon'}">
-          <div class="path-stairs__card">
-            <span class="path-stairs__sec">${JX.escape(sec.title)}</span>
-            ${modsHtml}
-          </div>
-          <span class="path-stairs__arrow" aria-hidden="true">→</span>
-        </li>`;
-    })
-    .join('');
+JX.renderHomeStairs = (catalog) => JX.renderLatestRail(catalog);
 
-  return `
-    <section class="home-block home-block--stairs">
-      <div class="section__head">
-        <h2>次第修学</h2>
-        <p>建议按上师教言,循序学修。</p>
-      </div>
-      <ol class="path-stairs path-stairs--sections">
-        ${items}
-        ${JX.renderPathMore()}
-      </ol>
-    </section>`;
+JX.safeHttpUrl = (url) => {
+  const u = String(url || '').trim();
+  return /^https?:\/\//i.test(u) ? u : '';
+};
+
+JX.safeHref = (url) => {
+  const u = String(url || '').trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith('/')) return u;
+  return '';
+};
+
+JX.fetchArticles = async () => {
+  const res = await fetch('/api/articles', { cache: 'no-store' });
+  if (!res.ok) throw new Error('无法加载公众号好文');
+  const data = await res.json();
+  return Array.isArray(data.collections) ? data.collections : [];
+};
+
+JX.resolveRelatedLink = (item, collections) => {
+  if (!item) return null;
+  const override = String(item.title || '').trim();
+  if (item.kind === 'article' || item.collectionId) {
+    const col = (collections || []).find((c) => c.id === item.collectionId);
+    if (!col) return null;
+    if (item.articleId) {
+      const art = (col.articles || []).find((a) => a.id === item.articleId);
+      if (!art) return null;
+      const href = JX.safeHref(art.url);
+      if (!href) return null;
+      return {
+        title: override || art.title || col.title || '相关链接',
+        href,
+        external: /^https?:\/\//i.test(href),
+      };
+    }
+    if (col.kind === 'link') {
+      const href = JX.safeHref(col.url);
+      if (!href) return null;
+      return {
+        title: override || col.title || '相关链接',
+        href,
+        external: /^https?:\/\//i.test(href),
+      };
+    }
+    return {
+      title: override || col.title || '相关链接',
+      href: `/reference/articles/#acol-${encodeURIComponent(col.id)}`,
+      external: false,
+    };
+  }
+  const href = JX.safeHref(item.url);
+  if (!href) return null;
+  return {
+    title: override || '相关链接',
+    href,
+    external: /^https?:\/\//i.test(href),
+  };
+};
+
+JX.renderRelatedLinks = (links, collections) => {
+  const items = (links || [])
+    .map((item) => {
+      const resolved = JX.resolveRelatedLink(item, collections);
+      if (!resolved) return '';
+      const extra = resolved.external ? ' target="_blank" rel="noopener noreferrer"' : '';
+      return `<li class="home-related__item"><a href="${JX.escape(resolved.href)}"${extra}><span class="home-related__title">${JX.escape(resolved.title)}</span><span class="home-related__go" aria-hidden="true">↗</span></a></li>`;
+    })
+    .filter(Boolean);
+  if (!items.length) return '';
+  return `<ul class="home-related">${items.join('')}</ul>`;
 };
 
 JX.renderHomeSections = (catalog, opts = {}) => {
   const mode = opts.mode || 'list';
-  const stairTitles = new Set(JX.HOME_STAIR_TITLES || []);
+  const xuequ = JX.getXuequ(catalog) || [];
 
   let main = '';
   if (mode === 'stairs') {
     main = JX.renderHomeStairs(catalog);
   }
 
-  const listSecs = (JX.HOME_SECTIONS || []).filter((sec) => {
-    if (mode === 'stairs' && stairTitles.has(sec.title)) return false;
+  const listSecs = xuequ.filter((sec) => {
+    if (mode === 'stairs' && JX.isLatestXuequ(sec)) return false;
     return true;
   });
 
   const parts = listSecs.map((sec) => {
     const body = JX.renderSectionModsBody(catalog, sec);
-    if (!String(body).includes('module-list__title') && !String(body).includes('module-list')) {
-      // still render empty section? skip empty
-    }
-    if (!body || body === '<ul class="module-list"></ul>') return '';
+    const linksHtml = JX.renderRelatedLinks(sec.relatedLinks, opts.articles);
+    if ((!body || body === '<ul class="module-list"></ul>') && !linksHtml) return '';
     return `
       <section class="home-block">
         <div class="section__head">
           <h2>${JX.escape(sec.title)}</h2>
         </div>
-        ${body}
+        ${body || ''}
+        ${linksHtml}
       </section>`;
   }).filter(Boolean);
 
@@ -429,8 +529,18 @@ JX.isOutlineHeading = (line) => {
   return true;
 };
 
+/** Markdown 行标题：# 标题 / ## 标题（# 后至少空一格） */
+JX.MD_HEADING_RE = /^(#{1,3})[\s\u3000]+(.+)$/;
+
+JX.parseMarkdownHeading = (line) => {
+  const m = String(line || '').trim().match(JX.MD_HEADING_RE);
+  if (!m) return null;
+  const title = String(m[2] || '').trim();
+  return title ? { level: m[1].length, title } : null;
+};
+
 /**
- * 解析课文：按行识别科判标题；每一非空行自成一段（段间空一行）。
+ * 解析课文：按行识别科判标题与 # 标题；每一非空行自成一段（段间空一行）。
  * @returns {{ html: string, toc: { id: string, title: string }[] }}
  */
 JX.parseArticle = (text) => {
@@ -449,11 +559,13 @@ JX.parseArticle = (text) => {
     const line = lineRaw.trim();
     if (!line) continue;
 
-    if (JX.isOutlineHeading(line)) {
+    const md = JX.parseMarkdownHeading(line);
+    if (JX.isOutlineHeading(line) || md) {
       const id = `sec-${headingIdx++}`;
-      toc.push({ id, title: line });
+      const title = md ? md.title : line;
+      toc.push({ id, title });
       parts.push(
-        `<h2 class="learn-heading" id="${id}">${JX.inlineFormat(JX.escape(line))}</h2>`,
+        `<h2 class="learn-heading" id="${id}">${JX.inlineFormat(JX.escape(title))}</h2>`,
       );
     } else {
       parts.push(`<p>${JX.inlineFormat(JX.escape(line))}</p>`);

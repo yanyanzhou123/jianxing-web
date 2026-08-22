@@ -429,6 +429,78 @@
   gap: 0.5rem;
   margin-bottom: 0.55rem;
 }
+.ops-side-head__btns {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.ops-xq-card {
+  border: 1px solid var(--line);
+  padding: 0.75rem 0.8rem 0.85rem;
+  margin-bottom: 0.65rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+.ops-xq-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.ops-xq-card__ord {
+  font-size: 0.92rem;
+}
+.ops-xq-card__sort {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.ops-xq-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.35rem 0;
+}
+.ops-xq-sub__ord {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  min-width: 1.1rem;
+}
+.ops-xq-sub input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+  font: inherit;
+}
+.ops-xq-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.35rem 0;
+}
+.ops-xq-link input,
+.ops-xq-link select {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+  font: inherit;
+}
+.ops-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
 .ops-side {
   position: sticky;
   top: 9.5rem;
@@ -521,6 +593,17 @@
   background: rgba(255, 255, 255, 0.7);
 }
 .ops-field textarea { min-height: 7rem; resize: vertical; }
+.ops-les-text {
+  min-height: 14rem;
+  resize: vertical;
+}
+.ops-hint code {
+  font-family: inherit;
+  font-size: 0.92em;
+  padding: 0.05em 0.2em;
+  background: rgba(47, 93, 78, 0.08);
+  border-radius: 0.2rem;
+}
 .ops-row {
   display: flex;
   flex-wrap: wrap;
